@@ -2,16 +2,11 @@
 <html lang="sk">
 
 <head>
-
 <meta charset="UTF-8">
-
 <title>
 MT21B Workforce Manager – Prihlásenie
 </title>
-
-<link rel="stylesheet"
-href="style.css">
-
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -36,14 +31,17 @@ href="style.css">
 <input type="text" id="regName" placeholder="Meno a priezvisko (nepovinné)">
 </div>
 
-<input type="email" id="authEmail" placeholder="E-mail" required>
-<input type="password" id="authPassword" placeholder="Heslo (min. 6 znakov)" required>
+<input type="text" id="authEmail" placeholder="Prihlasovacia skratka (napr. pceizel)" required>
+
+<input type="password" id="authPassword" placeholder="Heslo" required>
 
 <div id="confirmPasswordWrap" style="display: none;">
 <input type="password" id="regPasswordConfirm" placeholder="Potvrď heslo">
 </div>
 
-<button type="submit" id="authSubmitBtn" class="primary-btn">Prihlásiť sa</button>
+<button type="submit" id="authSubmitBtn" class="primary-btn">
+Prihlásiť sa
+</button>
 
 </form>
 
@@ -51,10 +49,7 @@ href="style.css">
 
 </div>
 
-<script type="module"
-src="login.js">
-</script>
+<script type="module" src="login.js"></script>
 
 </body>
-
 </html>
