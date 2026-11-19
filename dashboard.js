@@ -36,6 +36,18 @@ onAuthStateChanged
 from
 "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
+const LINES = [
+"Nepriradená",
+"Linka 1",
+"Linka 2",
+"Linka 3",
+"Linka 4",
+"Linka 5",
+"Linka 6",
+"Linka 7",
+"Linka 8"
+];
+
 let dataLoaded = false;
 let latestEmployeesData = null;
 let latestUsersData = null;
@@ -60,6 +72,15 @@ const addUserForm = document.getElementById("addUserForm");
 const addUserStatus = document.getElementById("addUserStatus");
 const usersRoleList = document.getElementById("usersRoleList");
 const roleBadge = document.getElementById("roleBadge");
+
+function normalizeShortcut(raw) {
+return raw
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9._-]/g, "");
+}
 
 function normalizeRole(rawRole) {
 if (rawRole === "majster" || rawRole === "admin") {
@@ -124,10 +145,13 @@ if (snap.exists() && snap.val().role) {
 currentUserRole = normalizeRole(snap.val().role);
 } else {
 const defaultRole = user.email === "admin@mt21b.local" ? "majster" : "zamestnanec";
+const fallbackShortcut = user.email ? user.email.split("@")[0] : "";
 currentUserRole = defaultRole;
 await set(userRef, {
 email: user.email || "",
-name: user.email ? user.email.split("@")[0] : "Používateľ",
+loginId: fallbackShortcut,
+name: fallbackShortcut || "Používateľ",
+line: "Nepriradená",
 role: defaultRole
 });
 }
@@ -198,16 +222,34 @@ list.className = "users-list";
 entries.forEach(([uid, u]) => {
 const li = document.createElement("li");
 const displayName = u.name || u.email || uid;
+const shortcutText = u.loginId || (u.email ? u.email.split("@")[0] : "");
 const roleText = normalizeRole(u.role);
+const currentLine = u.line || "Nepriradená";
 
 const labelSpan = document.createElement("span");
-labelSpan.innerText = `${displayName}${u.email ? ` (${u.email})` : ""} — ${roleText}`;
+labelSpan.innerText = `${displayName} [skratka: ${shortcutText}] — ${currentLine} (${roleText})`;
 li.appendChild(labelSpan);
 
 const controlsWrap = document.createElement("div");
 controlsWrap.style.display = "flex";
 controlsWrap.style.gap = "8px";
 controlsWrap.style.alignItems = "center";
+controlsWrap.style.flexWrap = "wrap";
+
+const lineSelect = document.createElement("select");
+lineSelect.className = "role-select";
+LINES.forEach((lineName) => {
+const opt = document.createElement("option");
+opt.value = lineName;
+opt.innerText = lineName;
+lineSelect.appendChild(opt);
+});
+lineSelect.value = LINES.includes(currentLine) ? currentLine : "Nepriradená";
+lineSelect.addEventListener("change", async () => {
+await update(ref(db, `users/${uid}`), {
+line: lineSelect.value
+});
+});
 
 const select = document.createElement("select");
 select.className = "role-select";
@@ -229,7 +271,7 @@ role: select.value
 });
 });
 
-controlsWrap.appendChild(select);
+controlsWrap.append(lineSelect, select);
 
 if (uid !== currentUid) {
 const deleteUserBtn = document.createElement("button");
@@ -373,20 +415,25 @@ e.preventDefault();
 if (!isMajster()) return;
 
 const nameInput = document.getElementById("newUserName");
-const emailInput = document.getElementById("newUserEmail");
+const shortcutInput = document.getElementById("newUserShortcut");
 const passwordInput = document.getElementById("newUserPassword");
 const submitBtn = addUserForm.querySelector("button[type='submit']");
 
-const customName = nameInput.value.trim();
-const email = emailInput.value.trim();
+const fullNameWithDiacritics = nameInput.value.trim();
+const cleanShortcut = normalizeShortcut(shortcutInput.value);
 const password = passwordInput.value;
 
-if (!email || !password) return;
+if (!fullNameWithDiacritics || !cleanShortcut || !password) {
+showAddUserMessage("Vyplň meno s diakritikou, skratku aj heslo.", true);
+return;
+}
 
 if (password.length < 6) {
 showAddUserMessage("Heslo musí mať aspoň 6 znakov.", true);
 return;
 }
+
+const authEmail = `${cleanShortcut}@mt21b.local`;
 
 if (submitBtn) submitBtn.disabled = true;
 
@@ -397,24 +444,28 @@ const existingSecondary = getApps().find((a) => a.name === "SecondaryUserCreator
 secondaryApp = existingSecondary || initializeApp(firebaseConfig, "SecondaryUserCreator");
 const secondaryAuth = getAuth(secondaryApp);
 
-const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, password);
 const newUid = cred.user.uid;
-const fallbackName = email.split("@")[0] || "Používateľ";
 
 await set(ref(db, `users/${newUid}`), {
-email,
-name: customName || fallbackName,
+email: authEmail,
+loginId: cleanShortcut,
+name: fullNameWithDiacritics,
+line: "Nepriradená",
 role: "zamestnanec"
 });
 
 await secondarySignOut(secondaryAuth);
 addUserForm.reset();
-showAddUserMessage(`Používateľ ${email} bol vytvorený s rolou zamestnanec.`, false);
+showAddUserMessage(
+`Používateľ „${fullNameWithDiacritics}“ (prihlasovacia skratka: ${cleanShortcut}) bol pridaný s rolou zamestnanec.`,
+false
+);
 } catch (err) {
 const code = err?.code || "";
 let msg = err?.message || "Nepodarilo sa vytvoriť používateľa.";
-if (code === "auth/email-already-in-use") msg = "Tento e-mail už účet má.";
-else if (code === "auth/invalid-email") msg = "Neplatný formát e-mailu.";
+if (code === "auth/email-already-in-use") msg = "Táto prihlasovacia skratka už existuje.";
+else if (code === "auth/invalid-email") msg = "Neplatná prihlasovacia skratka.";
 else if (code === "auth/weak-password") msg = "Heslo je príliš slabé (min. 6 znakov).";
 showAddUserMessage(msg, true);
 } finally {
