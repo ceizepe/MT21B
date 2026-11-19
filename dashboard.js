@@ -4,8 +4,10 @@ from "./firebase-config.js";
 import {
 ref,
 onValue,
+get,
 push,
 set,
+update,
 remove
 }
 from
@@ -20,6 +22,8 @@ from
 
 let dataLoaded = false;
 let latestEmployeesData = null;
+let latestUsersData = null;
+let currentUserRole = "zamestnanec";
 
 const overviewSection = document.getElementById("overviewSection");
 const detailSection = document.getElementById("detailSection");
@@ -31,15 +35,73 @@ const usersView = document.getElementById("usersView");
 const groupsView = document.getElementById("groupsView");
 
 const addEmployeeForm = document.getElementById("addEmployeeForm");
+const employeeRoleNotice = document.getElementById("employeeRoleNotice");
+const actionColHeader = document.getElementById("actionColHeader");
 const employeesTableBody = document.getElementById("employeesTableBody");
+const usersRoleList = document.getElementById("usersRoleList");
+const roleBadge = document.getElementById("roleBadge");
+
+function normalizeRole(rawRole) {
+if (rawRole === "majster" || rawRole === "admin") {
+return "majster";
+}
+return "zamestnanec";
+}
+
+function isMajster() {
+return currentUserRole === "majster";
+}
+
+function applyRoleUI() {
+if (roleBadge) {
+roleBadge.innerText = currentUserRole;
+roleBadge.classList.remove("role-majster", "role-zamestnanec");
+roleBadge.classList.add(isMajster() ? "role-majster" : "role-zamestnanec");
+}
+
+if (addEmployeeForm) {
+addEmployeeForm.style.display = isMajster() ? "flex" : "none";
+}
+
+if (employeeRoleNotice) {
+employeeRoleNotice.style.display = isMajster() ? "none" : "block";
+}
+
+if (actionColHeader) {
+actionColHeader.style.display = isMajster() ? "" : "none";
+}
+
+renderEmployeesTable(latestEmployeesData);
+renderUsersList(latestUsersData);
+}
+
+async function ensureUserRole(user) {
+const userRef = ref(db, `users/${user.uid}`);
+const snap = await get(userRef);
+
+if (snap.exists() && snap.val().role) {
+currentUserRole = normalizeRole(snap.val().role);
+} else {
+const defaultRole = user.email === "admin@mt21b.local" ? "majster" : "zamestnanec";
+currentUserRole = defaultRole;
+await set(userRef, {
+email: user.email || "",
+name: user.email ? user.email.split("@")[0] : "Používateľ",
+role: defaultRole
+});
+}
+
+applyRoleUI();
+}
 
 function renderEmployeesTable(employeesObj) {
 if (!employeesTableBody) return;
 
 employeesTableBody.innerHTML = "";
+const colSpan = isMajster() ? 5 : 4;
 
 if (!employeesObj) {
-employeesTableBody.innerHTML = `<tr><td colspan="5">Zatiaľ nie sú pridaní žiadni zamestnanci.</td></tr>`;
+employeesTableBody.innerHTML = `<tr><td colspan="${colSpan}">Zatiaľ nie sú pridaní žiadni zamestnanci.</td></tr>`;
 return;
 }
 
@@ -60,6 +122,9 @@ tdLast.innerText = emp.lastName || "";
 const tdPhone = document.createElement("td");
 tdPhone.innerText = emp.phone || "";
 
+tr.append(tdPersonal, tdFirst, tdLast, tdPhone);
+
+if (isMajster()) {
 const tdAction = document.createElement("td");
 const deleteBtn = document.createElement("button");
 deleteBtn.type = "button";
@@ -70,9 +135,61 @@ await remove(ref(db, `employees/${id}`));
 });
 
 tdAction.appendChild(deleteBtn);
-tr.append(tdPersonal, tdFirst, tdLast, tdPhone, tdAction);
+tr.appendChild(tdAction);
+}
+
 employeesTableBody.appendChild(tr);
 });
+}
+
+function renderUsersList(usersObj) {
+if (!usersRoleList) return;
+
+usersRoleList.innerHTML = "";
+
+if (!usersObj) return;
+
+const entries = Object.entries(usersObj);
+const list = document.createElement("ul");
+list.className = "users-list";
+
+entries.forEach(([uid, u]) => {
+const li = document.createElement("li");
+const displayName = u.name || u.email || uid;
+const roleText = normalizeRole(u.role);
+
+const labelSpan = document.createElement("span");
+labelSpan.innerText = `${displayName} (${roleText})`;
+li.appendChild(labelSpan);
+
+if (isMajster()) {
+const select = document.createElement("select");
+select.className = "role-select";
+
+const optMajster = document.createElement("option");
+optMajster.value = "majster";
+optMajster.innerText = "majster";
+
+const optZamestnanec = document.createElement("option");
+optZamestnanec.value = "zamestnanec";
+optZamestnanec.innerText = "zamestnanec";
+
+select.append(optMajster, optZamestnanec);
+select.value = roleText;
+
+select.addEventListener("change", async () => {
+await update(ref(db, `users/${uid}`), {
+role: select.value
+});
+});
+
+li.appendChild(select);
+}
+
+list.appendChild(li);
+});
+
+usersRoleList.appendChild(list);
 }
 
 function subscribeToData() {
@@ -93,6 +210,7 @@ renderEmployeesTable(val);
 
 onValue(ref(db, "users"), (snapshot) => {
 const val = snapshot.exists() ? snapshot.val() : null;
+latestUsersData = val;
 const count = val ? Object.keys(val).length : 0;
 
 const countEl = document.getElementById("userCount");
@@ -104,6 +222,18 @@ const detailCountEl = document.getElementById("usersDetailCount");
 if (detailCountEl) {
 detailCountEl.innerText = count;
 }
+
+const currentAuthUser = auth.currentUser;
+if (currentAuthUser && val && val[currentAuthUser.uid] && val[currentAuthUser.uid].role) {
+const updatedRole = normalizeRole(val[currentAuthUser.uid].role);
+if (updatedRole !== currentUserRole) {
+currentUserRole = updatedRole;
+applyRoleUI();
+return;
+}
+}
+
+renderUsersList(val);
 });
 }
 
@@ -122,6 +252,7 @@ renderEmployeesTable(latestEmployeesData);
 } else if (sectionName === "users") {
 detailTitle.innerText = "Používatelia";
 usersView.style.display = "block";
+renderUsersList(latestUsersData);
 } else if (sectionName === "groups") {
 detailTitle.innerText = "Skupiny";
 groupsView.style.display = "block";
@@ -145,6 +276,8 @@ overviewSection.style.display = "flex";
 if (addEmployeeForm) {
 addEmployeeForm.addEventListener("submit", async (e) => {
 e.preventDefault();
+
+if (!isMajster()) return;
 
 const personalInput = document.getElementById("empPersonalNumber");
 const firstInput = document.getElementById("empFirstName");
@@ -171,13 +304,14 @@ personalInput.focus();
 });
 }
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
 const userEl = document.getElementById("currentUser");
 
 if (user) {
 if (userEl) {
 userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
+await ensureUserRole(user);
 subscribeToData();
 } else {
 location.href = "index.html";
