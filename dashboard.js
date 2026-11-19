@@ -61,6 +61,11 @@ const detailTitle = document.getElementById("detailTitle");
 const backToOverviewBtn = document.getElementById("backToOverviewBtn");
 const usersCard = document.getElementById("usersCard");
 const employeesCard = document.getElementById("employeesCard");
+const linesCard = document.getElementById("linesCard");
+const employeeWelcomeCard = document.getElementById("employeeWelcomeCard");
+const employeeWelcomeTitle = document.getElementById("employeeWelcomeTitle");
+const employeeAssignmentText = document.getElementById("employeeAssignmentText");
+const employeeProductionText = document.getElementById("employeeProductionText");
 
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
@@ -151,7 +156,9 @@ return Object.entries(val)
   .map(([key, data], idx) => ({
     key,
     name: data?.name || key,
-    order: typeof data?.order === "number" ? data.order : idx + 1
+    order: typeof data?.order === "number" ? data.order : idx + 1,
+    product: data?.product || "",
+    project: data?.project || ""
   }))
   .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "sk"));
 }
@@ -173,6 +180,39 @@ if (!u) return uid;
 return u.name || u.loginId || u.email || uid;
 }
 
+function renderEmployeeWelcome() {
+if (!employeeWelcomeCard || isMajster()) return;
+const uid = auth.currentUser?.uid;
+if (!uid) return;
+
+const userData = latestUsersData?.[uid] || {};
+const firstName = (userData.firstName || userData.name || userData.loginId || "").trim().split(/\s+/)[0] || "";
+if (employeeWelcomeTitle) {
+employeeWelcomeTitle.innerText = firstName ? `Ahoj ${firstName}` : "Ahoj";
+}
+
+const assignedLines = latestLinesList.filter((lineObj) => Boolean(latestLineAssignments?.[lineObj.key]?.[uid]));
+if (assignedLines.length === 0) {
+employeeAssignmentText.innerText = "Dnes nemáš priradenú žiadnu linku.";
+employeeProductionText.innerHTML = '<span class="assignment-muted">Majster ti zatiaľ nepriradil pracovisko.</span>';
+return;
+}
+
+employeeAssignmentText.innerText = assignedLines.length === 1
+  ? `Dnes máš priradenú linku ${assignedLines[0].name}.`
+  : `Dnes máš priradené linky: ${assignedLines.map((line) => line.name).join(", ")}.`;
+
+employeeProductionText.innerHTML = "";
+assignedLines.forEach((line) => {
+const row = document.createElement("div");
+row.className = "employee-production-row";
+const productText = line.product || "Výroba zatiaľ nebola zadaná";
+const projectText = line.project || "Projekt zatiaľ nebol zadaný";
+row.innerHTML = `<strong>${line.name}</strong><span>Budeš vyrábať: ${productText}</span><span>Projekt: ${projectText}</span>`;
+employeeProductionText.appendChild(row);
+});
+}
+
 function applyRoleUI() {
 if (roleBadge) {
 roleBadge.innerText = currentUserRole;
@@ -186,6 +226,14 @@ usersCard.style.display = isMajster() ? "block" : "none";
 
 if (employeesCard) {
 employeesCard.style.display = isMajster() ? "block" : "none";
+}
+
+if (linesCard) {
+linesCard.style.display = isMajster() ? "block" : "none";
+}
+
+if (employeeWelcomeCard) {
+employeeWelcomeCard.style.display = isMajster() ? "none" : "block";
 }
 
 if (!isMajster() && usersView && usersView.style.display === "block") {
@@ -215,6 +263,7 @@ actionColHeader.style.display = isMajster() ? "" : "none";
 renderEmployeesTable(latestEmployeesData);
 renderUsersList(latestUsersData);
 renderLinesBoard();
+renderEmployeeWelcome();
 }
 
 async function ensureUserRole(user) {
@@ -463,6 +512,23 @@ name: trimmed
 });
 });
 
+const productionBtn = document.createElement("button");
+productionBtn.type = "button";
+productionBtn.className = "secondary-btn";
+productionBtn.style.padding = "3px 8px";
+productionBtn.style.fontSize = "12px";
+productionBtn.innerText = "Výroba a projekt";
+productionBtn.addEventListener("click", async () => {
+const product = window.prompt("Čo sa bude na tejto linke vyrábať?", lineObj.product || "");
+if (product === null) return;
+const project = window.prompt("Názov alebo číslo projektu:", lineObj.project || "");
+if (project === null) return;
+await update(ref(db, `lines/${lineObj.key}`), {
+product: product.trim(),
+project: project.trim()
+});
+});
+
 const deleteLineBtn = document.createElement("button");
 deleteLineBtn.type = "button";
 deleteLineBtn.className = "line-remove-btn";
@@ -477,11 +543,16 @@ await remove(ref(db, `lines/${lineObj.key}`));
 await remove(ref(db, `lineAssignments/${lineObj.key}`));
 });
 
-headerRight.append(renameBtn, deleteLineBtn);
+headerRight.append(renameBtn, productionBtn, deleteLineBtn);
 }
 
 header.append(title, headerRight);
 card.appendChild(header);
+
+const productionInfo = document.createElement("div");
+productionInfo.className = "line-production-info";
+productionInfo.innerHTML = `<span><strong>Výroba:</strong> ${lineObj.product || "nezadaná"}</span><span><strong>Projekt:</strong> ${lineObj.project || "nezadaný"}</span>`;
+card.appendChild(productionInfo);
 
 const membersList = document.createElement("ul");
 membersList.className = "line-members-list";
@@ -832,6 +903,7 @@ linesCountEl.innerText = latestLinesList.length;
 
 renderLinesBoard();
 renderUsersList(latestUsersData);
+renderEmployeeWelcome();
 });
 
 onValue(ref(db, "employees"), (snapshot) => {
@@ -876,17 +948,19 @@ return;
 
 renderUsersList(val);
 renderLinesBoard();
+renderEmployeeWelcome();
 });
 
 onValue(ref(db, "lineAssignments"), (snapshot) => {
 latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
 renderLinesBoard();
 renderUsersList(latestUsersData);
+renderEmployeeWelcome();
 });
 }
 
 function openSection(sectionName) {
-if (sectionName === "users" && !isMajster()) {
+if ((sectionName === "users" || sectionName === "employees" || sectionName === "lines") && !isMajster()) {
 return;
 }
 
@@ -920,10 +994,6 @@ renderAbsences();
 document.querySelectorAll(".clickable-card").forEach((card) => {
 card.addEventListener("click", () => {
 const target = card.getAttribute("data-section");
-if (target === "calendar") {
-location.href = "calendar.html";
-return;
-}
 openSection(target);
 });
 });

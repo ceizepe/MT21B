@@ -311,34 +311,20 @@ button{
     border:1px solid #ccc;
 }
 
-/* Neprítomnosti */
-.absence-form {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 1fr 2fr auto;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 18px;
-  padding: 16px;
-  border: 1px solid #e1e5eb;
-  border-radius: 10px;
-  background: #fafbfc;
+/* Osobné pracovné priradenie zamestnanca */
+.employee-welcome-card {
+  grid-column: 1 / -1;
+  padding: 22px;
+  border-left: 5px solid #d70000;
+  text-align: left;
 }
-.absence-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: bold; color: #364152; }
-.absence-form input, .absence-form select, .absence-form textarea { width: 100%; padding: 10px; border: 1px solid #c9d0da; border-radius: 6px; background: white; font: inherit; }
-.absence-form textarea { resize: vertical; min-height: 42px; }
-.absence-status { display: inline-block; padding: 5px 9px; border-radius: 999px; font-size: 12px; font-weight: bold; white-space: nowrap; }
-.status-pending { background: #fff3cd; color: #7a5700; }
-.status-approved { background: #e7f5ea; color: #19692c; }
-.status-rejected { background: #fde8e8; color: #9d1c1c; }
-.status-reported { background: #e8f0fb; color: #234f87; }
-.approve-btn { padding: 6px 12px; border: 0; border-radius: 5px; background: #287a3d; color: white; font-weight: bold; }
-.table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.absence-table td { vertical-align: top; }
-@media (max-width: 900px) {
-  .absence-form { grid-template-columns: 1fr 1fr; }
-  .absence-note-field { grid-column: 1 / -1; }
-}
-@media (max-width: 600px) {
-  .absence-form { grid-template-columns: 1fr; }
-  .absence-note-field { grid-column: auto; }
+.employee-welcome-card h3 { margin: 0 0 8px; font-size: 24px; }
+.employee-welcome-card > p { margin: 0 0 14px; font-size: 17px; }
+.employee-production-text { display: grid; gap: 10px; }
+.employee-production-row { display: grid; grid-template-columns: minmax(140px, .7fr) 1.4fr 1fr; gap: 12px; padding: 12px 14px; border: 1px solid #dfe3e8; border-radius: 8px; background: #f8f9fb; }
+.employee-production-row span { color: #354052; }
+.assignment-muted { color: #687386; }
+.line-production-info { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 0 2px; color: #4a5568; font-size: 13px; }
+@media (max-width: 700px) {
+  .employee-production-row { grid-template-columns: 1fr; gap: 5px; }
 }
