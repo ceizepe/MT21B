@@ -63,6 +63,25 @@ nav{
     padding:8px 14px;
 }
 
+.role-badge{
+    padding:3px 9px;
+    border-radius:12px;
+    font-size:12px;
+    font-weight:bold;
+    text-transform:uppercase;
+}
+
+.role-majster{
+    background:#ffffff;
+    color:#cc0000;
+}
+
+.role-zamestnanec{
+    background:rgba(255, 255, 255, 0.22);
+    color:#ffffff;
+    border:1px solid rgba(255, 255, 255, 0.5);
+}
+
 .login-container{
     width:350px;
     margin:120px auto;
@@ -142,6 +161,14 @@ button{
     border-radius:6px;
 }
 
+.role-notice{
+    background:#fff4e5;
+    border-left:4px solid #cc0000;
+    padding:10px 14px;
+    border-radius:4px;
+    margin-bottom:16px;
+}
+
 .employee-form{
     display:flex;
     flex-wrap:wrap;
@@ -192,4 +219,27 @@ button{
     color:white;
     border:none;
     border-radius:5px;
+}
+
+.users-list{
+    list-style:none;
+    padding:0;
+    margin:12px 0 0;
+}
+
+.users-list li{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 12px;
+    background:#fafafa;
+    border:1px solid #e5e5e5;
+    border-radius:6px;
+    margin-bottom:8px;
+}
+
+.role-select{
+    padding:6px 10px;
+    border-radius:6px;
+    border:1px solid #ccc;
 }
