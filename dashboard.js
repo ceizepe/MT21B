@@ -732,7 +732,7 @@ tdDecision.innerText = item.decisionNote || "";
 tr.append(tdType, tdTerm, tdNote, tdStatus, tdDecision);
 
 const tdAction = document.createElement("td");
-if (isMajster() && item.type === "dovolenka" && item.status === "pending") {
+if (isMajster() && (item.type === "dovolenka" || item.type === "nahradne_volno") && item.status === "pending") {
 const approveBtn = document.createElement("button");
 approveBtn.type = "button";
 approveBtn.className = "approve-btn";
@@ -765,6 +765,21 @@ decidedBy: auth.currentUser.uid
 });
 tdAction.className = "table-actions";
 tdAction.append(approveBtn, rejectBtn);
+} else if (isMajster() && (item.status === "approved" || item.status === "rejected")) {
+const deleteRequestBtn = document.createElement("button");
+deleteRequestBtn.type = "button";
+deleteRequestBtn.className = "delete-btn";
+deleteRequestBtn.innerText = "Zmazať";
+deleteRequestBtn.addEventListener("click", async () => {
+const statusText = item.status === "approved" ? "schválenú" : "zamietnutú";
+const confirmed = window.confirm(
+`Naozaj chceš natrvalo zmazať ${statusText} žiadosť používateľa ${item.employeeName || getUserDisplayName(item.uid)}?`
+);
+if (!confirmed) return;
+await remove(ref(db, `absences/${item.uid}/${item.requestId}`));
+});
+tdAction.className = "table-actions";
+tdAction.appendChild(deleteRequestBtn);
 } else {
 tdAction.innerText = "";
 }
