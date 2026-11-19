@@ -16,6 +16,8 @@ let selectedUid = "";
 let selectedName = "";
 let overrides = {};
 let calendarUnsubscribe = null;
+let absencesUnsubscribe = null;
+let absences = {};
 
 function dateKey(date) {
   const y = date.getFullYear();
@@ -43,6 +45,26 @@ function defaultShift(date) {
   if (cycle === 1) return day >= 1 && day <= 5 ? "ranna" : "volno";
   return day === 0 || (day >= 1 && day <= 4) ? "nocna" : "volno";
 }
+function absenceLabel(type) {
+  if (type === "dovolenka") return "Dovolenka";
+  if (type === "pn") return "PN";
+  if (type === "paragraf") return "Paragraf";
+  if (type === "nahradne_volno") return "Náhradné voľno";
+  return "Neprítomnosť";
+}
+function activeAbsenceForDate(key) {
+  return Object.values(absences || {}).find((item) => {
+    const active = (item.type === "dovolenka" || item.type === "nahradne_volno")
+      ? item.status === "approved"
+      : item.status === "reported";
+    return active && item.dateFrom <= key && item.dateTo >= key;
+  }) || null;
+}
+function absenceClass(type) {
+  if (type === "dovolenka") return "absence-dovolenka";
+  if (type === "nahradne_volno") return "absence-nahradne-volno";
+  return "absence-red";
+}
 function render() {
   if (!monthInput.value || !selectedUid) return;
   const [year, month] = monthInput.value.split("-").map(Number);
@@ -64,9 +86,12 @@ function render() {
     const key = dateKey(day);
     const override = overrides[key];
     const shift = override?.shift || defaultShift(day);
+    const absence = activeAbsenceForDate(key);
     const cell = document.createElement("button");
     cell.type = "button";
-    cell.className = `calendar-day shift-${shift}`;
+    cell.className = absence
+      ? `calendar-day ${absenceClass(absence.type)}`
+      : `calendar-day shift-${shift}`;
     if (day.getMonth() !== month - 1) cell.classList.add("outside-month");
     if (key === dateKey(new Date())) cell.classList.add("today");
     cell.disabled = !isManager;
@@ -75,7 +100,7 @@ function render() {
     number.innerText = day.getDate();
     const label = document.createElement("span");
     label.className = "calendar-shift-label";
-    label.innerText = SHIFT_LABELS[shift];
+    label.innerText = absence ? absenceLabel(absence.type) : SHIFT_LABELS[shift];
     cell.append(number,label);
     if (override?.note) {
       const note = document.createElement("span");
@@ -83,7 +108,7 @@ function render() {
       note.innerText = override.note;
       cell.appendChild(note);
     }
-    if (isManager) cell.addEventListener("click", () => editDay(key, shift, override?.note || ""));
+    if (isManager && !absence) cell.addEventListener("click", () => editDay(key, shift, override?.note || ""));
     workCalendar.appendChild(cell);
   }
   message.innerText = isManager ? `Kalendár: ${selectedName}` : "Tvoj pracovný kalendár";
@@ -108,15 +133,24 @@ async function editDay(key, currentShift, currentNote) {
 }
 function subscribeCalendar(uid, name) {
   if (calendarUnsubscribe) calendarUnsubscribe();
+  if (absencesUnsubscribe) absencesUnsubscribe();
   selectedUid = uid;
   selectedName = name;
   overrides = {};
+  absences = {};
   message.innerText = "Načítavam kalendár...";
+
   calendarUnsubscribe = onValue(ref(db, `workCalendars/${uid}`), (snapshot) => {
     overrides = snapshot.exists() ? snapshot.val() : {};
     render();
   });
+
+  absencesUnsubscribe = onValue(ref(db, `absences/${uid}`), (snapshot) => {
+    absences = snapshot.exists() ? snapshot.val() : {};
+    render();
+  });
 }
+
 async function loadManagerPeople() {
   const snapshot = await get(ref(db, "users"));
   const users = snapshot.exists() ? snapshot.val() : {};

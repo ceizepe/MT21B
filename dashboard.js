@@ -60,8 +60,6 @@ const detailSection = document.getElementById("detailSection");
 const detailTitle = document.getElementById("detailTitle");
 const backToOverviewBtn = document.getElementById("backToOverviewBtn");
 const usersCard = document.getElementById("usersCard");
-const employeesCard = document.getElementById("employeesCard");
-const calendarCard = document.getElementById("calendarCard");
 
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
@@ -183,9 +181,6 @@ roleBadge.classList.add(isMajster() ? "role-majster" : "role-zamestnanec");
 
 if (usersCard) {
 usersCard.style.display = isMajster() ? "block" : "none";
-}
-if (employeesCard) {
-employeesCard.style.display = isMajster() ? "block" : "none";
 }
 
 if (!isMajster() && usersView && usersView.style.display === "block") {
@@ -920,10 +915,6 @@ renderAbsences();
 document.querySelectorAll(".clickable-card").forEach((card) => {
 card.addEventListener("click", () => {
 const target = card.getAttribute("data-section");
-if (target === "calendar") {
-location.href = "calendar.html";
-return;
-}
 openSection(target);
 });
 });
