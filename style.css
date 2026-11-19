@@ -313,18 +313,31 @@ button{
 
 /* Osobné pracovné priradenie zamestnanca */
 .employee-welcome-card {
-  grid-column: 1 / -1;
-  padding: 22px;
+  order: 99;
+  flex: 0 1 900px;
+  width: min(900px, calc(100% - 40px));
+  max-width: 900px;
+  margin: 105px auto 0;
+  padding: 26px 30px;
   border-left: 5px solid #d70000;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(2px);
   text-align: left;
+  position: relative;
+  z-index: 2;
 }
 .employee-welcome-card h3 { margin: 0 0 8px; font-size: 24px; }
 .employee-welcome-card > p { margin: 0 0 14px; font-size: 17px; }
 .employee-production-text { display: grid; gap: 10px; }
-.employee-production-row { display: grid; grid-template-columns: minmax(140px, .7fr) 1.4fr 1fr; gap: 12px; padding: 12px 14px; border: 1px solid #dfe3e8; border-radius: 8px; background: #f8f9fb; }
+.employee-production-row { display: grid; grid-template-columns: minmax(150px, .8fr) 1.5fr 1.2fr; gap: 18px; padding: 14px 16px; border: 1px solid #dfe3e8; border-radius: 8px; background: rgba(248, 249, 251, 0.9); }
 .employee-production-row span { color: #354052; }
 .assignment-muted { color: #687386; }
 .line-production-info { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 0 2px; color: #4a5568; font-size: 13px; }
 @media (max-width: 700px) {
+  .employee-welcome-card {
+    width: calc(100% - 24px);
+    margin-top: 70px;
+    padding: 22px 20px;
+  }
   .employee-production-row { grid-template-columns: 1fr; gap: 5px; }
 }
