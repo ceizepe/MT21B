@@ -190,6 +190,7 @@ usersRoleList.innerHTML = "";
 
 if (!isMajster() || !usersObj) return;
 
+const currentUid = auth.currentUser?.uid;
 const entries = Object.entries(usersObj);
 const list = document.createElement("ul");
 list.className = "users-list";
@@ -202,6 +203,11 @@ const roleText = normalizeRole(u.role);
 const labelSpan = document.createElement("span");
 labelSpan.innerText = `${displayName}${u.email ? ` (${u.email})` : ""} — ${roleText}`;
 li.appendChild(labelSpan);
+
+const controlsWrap = document.createElement("div");
+controlsWrap.style.display = "flex";
+controlsWrap.style.gap = "8px";
+controlsWrap.style.alignItems = "center";
 
 const select = document.createElement("select");
 select.className = "role-select";
@@ -223,7 +229,24 @@ role: select.value
 });
 });
 
-li.appendChild(select);
+controlsWrap.appendChild(select);
+
+if (uid !== currentUid) {
+const deleteUserBtn = document.createElement("button");
+deleteUserBtn.type = "button";
+deleteUserBtn.className = "delete-btn";
+deleteUserBtn.innerText = "Zmazať";
+deleteUserBtn.addEventListener("click", async () => {
+await remove(ref(db, `users/${uid}`));
+showAddUserMessage(
+`Záznam používateľa ${displayName} bol zmazaný z databázy. Ak ho chceš úplne zablokovať, zmaž ho aj v Authentication vo Firebase.`,
+false
+);
+});
+controlsWrap.appendChild(deleteUserBtn);
+}
+
+li.appendChild(controlsWrap);
 list.appendChild(li);
 });
 
