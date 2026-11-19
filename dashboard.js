@@ -64,7 +64,7 @@ const usersCard = document.getElementById("usersCard");
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
 const linesView = document.getElementById("linesView");
-const groupsView = document.getElementById("groupsView");
+const absencesView = document.getElementById("absencesView");
 
 const addEmployeeForm = document.getElementById("addEmployeeForm");
 const employeeRoleNotice = document.getElementById("employeeRoleNotice");
@@ -80,14 +80,17 @@ const newLineNameInput = document.getElementById("newLineName");
 const linesRoleNotice = document.getElementById("linesRoleNotice");
 const linesContainer = document.getElementById("linesContainer");
 const roleBadge = document.getElementById("roleBadge");
+const absenceForm = document.getElementById("absenceForm");
+const absenceTypeInput = document.getElementById("absenceType");
+const absenceDateFromInput = document.getElementById("absenceDateFrom");
+const absenceDateToInput = document.getElementById("absenceDateTo");
+const absenceNoteInput = document.getElementById("absenceNote");
+const absenceMessage = document.getElementById("absenceMessage");
+const absencesTableBody = document.getElementById("absencesTableBody");
+const absenceAdminNotice = document.getElementById("absenceAdminNotice");
 
-function setupEmployeesUI() {
-const phoneInput = document.getElementById("empPhone");
-if (phoneInput) {
-phoneInput.required = false;
-phoneInput.placeholder = "Telefónne číslo (nepovinné)";
-}
-}
+let latestAbsencesData = null;
+let absencesSubscribedPath = "";
 
 function normalizeShortcut(raw) {
 return raw
@@ -230,6 +233,14 @@ role: defaultRole
 applyRoleUI();
 }
 
+function setupEmployeesUI() {
+const phoneInput = document.getElementById("empPhone");
+if (phoneInput) {
+phoneInput.required = false;
+phoneInput.placeholder = "Telefónne číslo (nepovinné)";
+}
+}
+
 function renderEmployeesTable(employeesObj) {
 if (!employeesTableBody) return;
 
@@ -249,27 +260,19 @@ return nameA.localeCompare(nameB, "sk");
 
 entries.forEach(([id, emp]) => {
 const tr = document.createElement("tr");
-
 const tdPersonal = document.createElement("td");
 tdPersonal.innerText = emp.personalNumber || "";
-
 const tdFirst = document.createElement("td");
 tdFirst.innerText = emp.firstName || "";
-
 const tdLast = document.createElement("td");
 tdLast.innerText = emp.lastName || "";
-
 const tdPhone = document.createElement("td");
 tdPhone.innerText = emp.phone || "";
-
 tr.append(tdPersonal, tdFirst, tdLast, tdPhone);
 
 if (isMajster()) {
 const tdAction = document.createElement("td");
-tdAction.style.display = "flex";
-tdAction.style.gap = "8px";
-tdAction.style.flexWrap = "wrap";
-
+tdAction.className = "table-actions";
 const editBtn = document.createElement("button");
 editBtn.type = "button";
 editBtn.className = "secondary-btn";
@@ -277,58 +280,39 @@ editBtn.innerText = "Upraviť";
 editBtn.addEventListener("click", async () => {
 const nextPersonalNumber = window.prompt("Osobné číslo:", emp.personalNumber || "");
 if (nextPersonalNumber === null) return;
-
 const nextFirstName = window.prompt("Meno:", emp.firstName || "");
 if (nextFirstName === null) return;
-
 const nextLastName = window.prompt("Priezvisko:", emp.lastName || "");
 if (nextLastName === null) return;
-
 const nextPhone = window.prompt("Telefónne číslo (môže zostať prázdne):", emp.phone || "");
 if (nextPhone === null) return;
-
 const personalNumber = nextPersonalNumber.trim();
 const firstName = nextFirstName.trim();
 const lastName = nextLastName.trim();
 const phone = nextPhone.trim();
-
 if (!personalNumber || !firstName || !lastName) {
 window.alert("Osobné číslo, meno aj priezvisko musia byť vyplnené.");
 return;
 }
-
-await update(ref(db, `employees/${id}`), {
-personalNumber,
-firstName,
-lastName,
-phone
-});
-
+await update(ref(db, `employees/${id}`), { personalNumber, firstName, lastName, phone });
 const linkedUid = emp.userUid || (latestUsersData?.[id] ? id : "");
 if (linkedUid && latestUsersData?.[linkedUid]) {
 await update(ref(db, `users/${linkedUid}`), {
-personalNumber,
-firstName,
-lastName,
-name: `${firstName} ${lastName}`
+personalNumber, firstName, lastName, name: `${firstName} ${lastName}`
 });
 }
 });
-
 const deleteBtn = document.createElement("button");
 deleteBtn.type = "button";
 deleteBtn.className = "delete-btn";
 deleteBtn.innerText = "Zmazať";
 deleteBtn.addEventListener("click", async () => {
-const confirmed = window.confirm(`Naozaj chceš odstrániť zamestnanca ${emp.firstName || ""} ${emp.lastName || ""}?`);
-if (!confirmed) return;
+if (!window.confirm(`Naozaj chceš odstrániť zamestnanca ${emp.firstName || ""} ${emp.lastName || ""}?`)) return;
 await remove(ref(db, `employees/${id}`));
 });
-
 tdAction.append(editBtn, deleteBtn);
 tr.appendChild(tdAction);
 }
-
 employeesTableBody.appendChild(tr);
 });
 }
@@ -669,24 +653,152 @@ linesContainer.appendChild(card);
 });
 }
 
+function formatDateSk(value) {
+if (!value) return "";
+const [year, month, day] = value.split("-");
+return `${day}.${month}.${year}`;
+}
+
+function absenceTypeLabel(type) {
+if (type === "dovolenka") return "Dovolenka";
+if (type === "pn") return "PN";
+if (type === "paragraf") return "Paragraf";
+return type || "";
+}
+
+function absenceStatusLabel(status) {
+if (status === "pending") return "Čaká na schválenie";
+if (status === "approved") return "Schválené";
+if (status === "rejected") return "Zamietnuté";
+if (status === "reported") return "Nahlásené";
+return status || "";
+}
+
+function flattenAbsences(raw) {
+if (!raw) return [];
+if (!isMajster()) {
+return Object.entries(raw).map(([requestId, item]) => ({ requestId, ...item }));
+}
+const result = [];
+Object.entries(raw).forEach(([uid, requests]) => {
+Object.entries(requests || {}).forEach(([requestId, item]) => {
+result.push({ uid, requestId, ...item });
+});
+});
+return result;
+}
+
+function renderAbsences() {
+if (!absencesTableBody) return;
+absencesTableBody.innerHTML = "";
+if (absenceAdminNotice) absenceAdminNotice.style.display = isMajster() ? "block" : "none";
+
+const rows = flattenAbsences(latestAbsencesData).sort((a, b) => {
+return (b.createdAt || 0) - (a.createdAt || 0);
+});
+
+if (rows.length === 0) {
+const tr = document.createElement("tr");
+const td = document.createElement("td");
+td.colSpan = isMajster() ? 7 : 6;
+td.innerText = "Zatiaľ nie sú evidované žiadne neprítomnosti.";
+tr.appendChild(td);
+absencesTableBody.appendChild(tr);
+return;
+}
+
+rows.forEach((item) => {
+const tr = document.createElement("tr");
+if (isMajster()) {
+const tdName = document.createElement("td");
+tdName.innerText = item.employeeName || getUserDisplayName(item.uid);
+tr.appendChild(tdName);
+}
+const tdType = document.createElement("td");
+tdType.innerText = absenceTypeLabel(item.type);
+const tdTerm = document.createElement("td");
+tdTerm.innerText = item.dateFrom === item.dateTo
+  ? formatDateSk(item.dateFrom)
+  : `${formatDateSk(item.dateFrom)} – ${formatDateSk(item.dateTo)}`;
+const tdNote = document.createElement("td");
+tdNote.innerText = item.note || "";
+const tdStatus = document.createElement("td");
+const badge = document.createElement("span");
+badge.className = `absence-status status-${item.status || "pending"}`;
+badge.innerText = absenceStatusLabel(item.status);
+tdStatus.appendChild(badge);
+const tdDecision = document.createElement("td");
+tdDecision.innerText = item.decisionNote || "";
+tr.append(tdType, tdTerm, tdNote, tdStatus, tdDecision);
+
+const tdAction = document.createElement("td");
+if (isMajster() && item.type === "dovolenka" && item.status === "pending") {
+const approveBtn = document.createElement("button");
+approveBtn.type = "button";
+approveBtn.className = "approve-btn";
+approveBtn.innerText = "Schváliť";
+approveBtn.addEventListener("click", async () => {
+await update(ref(db, `absences/${item.uid}/${item.requestId}`), {
+status: "approved",
+decisionNote: "",
+decidedAt: Date.now(),
+decidedBy: auth.currentUser.uid
+});
+});
+const rejectBtn = document.createElement("button");
+rejectBtn.type = "button";
+rejectBtn.className = "delete-btn";
+rejectBtn.innerText = "Zamietnuť";
+rejectBtn.addEventListener("click", async () => {
+const reason = window.prompt("Napíš dôvod zamietnutia:", "");
+if (reason === null) return;
+if (!reason.trim()) {
+window.alert("Pri zamietnutí musíš uviesť dôvod.");
+return;
+}
+await update(ref(db, `absences/${item.uid}/${item.requestId}`), {
+status: "rejected",
+decisionNote: reason.trim(),
+decidedAt: Date.now(),
+decidedBy: auth.currentUser.uid
+});
+});
+tdAction.className = "table-actions";
+tdAction.append(approveBtn, rejectBtn);
+} else {
+tdAction.innerText = "";
+}
+tr.appendChild(tdAction);
+absencesTableBody.appendChild(tr);
+});
+
+const headerPerson = document.getElementById("absencePersonHeader");
+if (headerPerson) headerPerson.style.display = isMajster() ? "" : "none";
+}
+
+function subscribeToAbsences(user) {
+const path = isMajster() ? "absences" : `absences/${user.uid}`;
+if (absencesSubscribedPath === path) return;
+absencesSubscribedPath = path;
+onValue(ref(db, path), (snapshot) => {
+latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
+renderAbsences();
+});
+}
+
 async function syncUsersToEmployees(usersObj, employeesObj) {
 if (!isMajster() || !usersObj) return;
-
 const writes = [];
 Object.entries(usersObj).forEach(([uid, userData]) => {
-const existingEmployee = employeesObj?.[uid];
-if (existingEmployee) return;
-
+if (employeesObj?.[uid]) return;
 const fullName = (userData.name || "").trim();
 let firstName = (userData.firstName || "").trim();
 let lastName = (userData.lastName || "").trim();
-
 if (!firstName && fullName) {
 const parts = fullName.split(/\s+/).filter(Boolean);
 firstName = parts.shift() || "";
 lastName = lastName || parts.join(" ");
 }
-
 writes.push(set(ref(db, `employees/${uid}`), {
 personalNumber: userData.personalNumber || "",
 firstName: firstName || userData.loginId || "Používateľ",
@@ -695,10 +807,7 @@ phone: "",
 userUid: uid
 }));
 });
-
-if (writes.length > 0) {
-await Promise.all(writes);
-}
+if (writes.length) await Promise.all(writes);
 }
 
 function subscribeToData() {
@@ -736,9 +845,7 @@ onValue(ref(db, "users"), (snapshot) => {
 const val = snapshot.exists() ? snapshot.val() : null;
 latestUsersData = val;
 if (isMajster()) {
-syncUsersToEmployees(val, latestEmployeesData).catch((error) => {
-console.error("Nepodarilo sa synchronizovať používateľov so zamestnancami:", error);
-});
+syncUsersToEmployees(val, latestEmployeesData).catch((error) => console.error("Synchronizácia zamestnancov zlyhala:", error));
 }
 const count = val ? Object.keys(val).length : 0;
 
@@ -784,7 +891,7 @@ detailSection.style.display = "block";
 employeesView.style.display = "none";
 usersView.style.display = "none";
 linesView.style.display = "none";
-groupsView.style.display = "none";
+absencesView.style.display = "none";
 
 if (sectionName === "employees") {
 detailTitle.innerText = "Zamestnanci";
@@ -798,9 +905,10 @@ renderUsersList(latestUsersData);
 detailTitle.innerText = "Linky";
 linesView.style.display = "block";
 renderLinesBoard();
-} else if (sectionName === "groups") {
-detailTitle.innerText = "Skupiny";
-groupsView.style.display = "block";
+} else if (sectionName === "absences") {
+detailTitle.innerText = "Neprítomnosti";
+absencesView.style.display = "block";
+renderAbsences();
 }
 }
 
@@ -849,6 +957,7 @@ const personalInput = document.getElementById("empPersonalNumber");
 const firstInput = document.getElementById("empFirstName");
 const lastInput = document.getElementById("empLastName");
 const phoneInput = document.getElementById("empPhone");
+
 const personalNumber = personalInput.value.trim();
 const firstName = firstInput.value.trim();
 const lastName = lastInput.value.trim();
@@ -911,7 +1020,6 @@ const newUid = cred.user.uid;
 const nameParts = fullNameWithDiacritics.split(/\s+/).filter(Boolean);
 const firstName = nameParts.shift() || fullNameWithDiacritics;
 const lastName = nameParts.join(" ");
-
 await set(ref(db, `users/${newUid}`), {
 email: authEmail,
 loginId: cleanShortcut,
@@ -921,7 +1029,6 @@ lastName,
 personalNumber: password,
 role: "zamestnanec"
 });
-
 await set(ref(db, `employees/${newUid}`), {
 personalNumber: password,
 firstName,
@@ -952,6 +1059,42 @@ if (submitBtn) submitBtn.disabled = false;
 });
 }
 
+if (absenceForm) {
+absenceForm.addEventListener("submit", async (e) => {
+e.preventDefault();
+const user = auth.currentUser;
+if (!user) return;
+const type = absenceTypeInput.value;
+const dateFrom = absenceDateFromInput.value;
+const dateTo = absenceDateToInput.value;
+const note = absenceNoteInput.value.trim();
+if (!type || !dateFrom || !dateTo) return;
+if (dateTo < dateFrom) {
+absenceMessage.style.display = "block";
+absenceMessage.className = "auth-message msg-error";
+absenceMessage.innerText = "Dátum do nemôže byť skôr ako dátum od.";
+return;
+}
+const userData = latestUsersData?.[user.uid] || {};
+const requestRef = push(ref(db, `absences/${user.uid}`));
+await set(requestRef, {
+uid: user.uid,
+employeeName: userData.name || user.email?.split("@")[0] || "Používateľ",
+type,
+dateFrom,
+dateTo,
+note,
+status: type === "dovolenka" ? "pending" : "reported",
+decisionNote: "",
+createdAt: Date.now()
+});
+absenceForm.reset();
+absenceMessage.style.display = "block";
+absenceMessage.className = "auth-message msg-success";
+absenceMessage.innerText = type === "dovolenka" ? "Žiadosť o dovolenku bola odoslaná." : "Neprítomnosť bola nahlásená.";
+});
+}
+
 setupEmployeesUI();
 
 onAuthStateChanged(auth, async (user) => {
@@ -963,6 +1106,7 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
 await ensureUserRole(user);
 subscribeToData();
+subscribeToAbsences(user);
 } else {
 location.href = "index.html";
 }
