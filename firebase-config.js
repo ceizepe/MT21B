@@ -2,7 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebas
 import { getAuth } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyA_meCanxxKAIRhzJ0HikuO5pl6SKE0O1s",
   authDomain: "mt21b-8d371.firebaseapp.com",
   databaseURL: "https://mt21b-8d371-default-rtdb.europe-west1.firebasedatabase.app",
