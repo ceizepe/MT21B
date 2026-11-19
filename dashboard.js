@@ -457,7 +457,7 @@ const removeBtn = document.createElement("button");
 removeBtn.type = "button";
 removeBtn.className = "line-remove-btn";
 removeBtn.title = "Odobrať z linky";
-removeBtn.innerText = "✕";
+removeBtn.innerText = "Odobrať";
 removeBtn.addEventListener("click", async () => {
 await remove(ref(db, `lineAssignments/${lineObj.key}/${uid}`));
 });
@@ -474,32 +474,97 @@ if (isMajster()) {
 const assignRow = document.createElement("div");
 assignRow.className = "line-assign-row";
 
-const userSelect = document.createElement("select");
-userSelect.className = "role-select line-user-select";
+const searchWrap = document.createElement("div");
+searchWrap.className = "person-search-wrap";
 
-const placeholderOpt = document.createElement("option");
-placeholderOpt.value = "";
-placeholderOpt.innerText = "-- Vyber človeka --";
-userSelect.appendChild(placeholderOpt);
+const personSearch = document.createElement("input");
+personSearch.type = "search";
+personSearch.className = "person-search-input";
+personSearch.placeholder = "Napíš meno alebo skratku";
+personSearch.autocomplete = "off";
+personSearch.setAttribute("aria-label", "Vyhľadať človeka");
 
-userEntries.forEach(([uid, u]) => {
-const opt = document.createElement("option");
-opt.value = uid;
-const displayName = u.name || u.loginId || u.email || uid;
-const existingLines = getUserAssignedLines(uid);
-const alreadyHere = Boolean(assignedMap[uid]);
+const resultsList = document.createElement("div");
+resultsList.className = "person-search-results";
+resultsList.style.display = "none";
 
-if (alreadyHere) {
-opt.innerText = `${displayName} (už na tejto linke)`;
-opt.disabled = true;
-} else if (existingLines.length > 0) {
-opt.innerText = `${displayName} [${existingLines.map((l) => l.name).join(", ")}]`;
-} else {
-opt.innerText = displayName;
+let selectedUid = "";
+
+const availableUsers = userEntries
+  .filter(([uid]) => !assignedMap[uid])
+  .map(([uid, u]) => {
+    const displayName = u.name || u.loginId || u.email || uid;
+    const shortcut = u.loginId || (u.email ? u.email.split("@")[0] : "");
+    const existingLines = getUserAssignedLines(uid);
+    const lineText = existingLines.length > 0
+      ? existingLines.map((l) => l.name).join(", ")
+      : "Nepriradený";
+
+    return {
+      uid,
+      displayName,
+      shortcut,
+      lineText,
+      searchText: normalizeShortcut(`${displayName} ${shortcut}`)
+    };
+  });
+
+function closeSearchResults() {
+  resultsList.style.display = "none";
 }
 
-userSelect.appendChild(opt);
+function renderSearchResults() {
+  const query = normalizeShortcut(personSearch.value);
+  resultsList.innerHTML = "";
+  selectedUid = "";
+
+  const matches = availableUsers
+    .filter((person) => !query || person.searchText.includes(query))
+    .slice(0, 12);
+
+  if (matches.length === 0) {
+    const emptyResult = document.createElement("div");
+    emptyResult.className = "person-search-empty";
+    emptyResult.innerText = "Nenašiel sa žiadny človek";
+    resultsList.appendChild(emptyResult);
+  } else {
+    matches.forEach((person) => {
+      const resultBtn = document.createElement("button");
+      resultBtn.type = "button";
+      resultBtn.className = "person-search-option";
+
+      const resultName = document.createElement("span");
+      resultName.className = "person-search-name";
+      resultName.innerText = person.displayName;
+
+      const resultMeta = document.createElement("span");
+      resultMeta.className = "person-search-meta";
+      resultMeta.innerText = `${person.shortcut} · ${person.lineText}`;
+
+      resultBtn.append(resultName, resultMeta);
+      resultBtn.addEventListener("click", () => {
+        selectedUid = person.uid;
+        personSearch.value = person.displayName;
+        closeSearchResults();
+      });
+
+      resultsList.appendChild(resultBtn);
+    });
+  }
+
+  resultsList.style.display = "block";
+}
+
+personSearch.addEventListener("focus", renderSearchResults);
+personSearch.addEventListener("input", renderSearchResults);
+personSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeSearchResults();
 });
+personSearch.addEventListener("blur", () => {
+  window.setTimeout(closeSearchResults, 150);
+});
+
+searchWrap.append(personSearch, resultsList);
 
 const addBtn = document.createElement("button");
 addBtn.type = "button";
@@ -507,8 +572,11 @@ addBtn.className = "primary-btn line-add-btn";
 addBtn.innerText = "Pridať";
 
 addBtn.addEventListener("click", async () => {
-const selectedUid = userSelect.value;
-if (!selectedUid) return;
+if (!selectedUid) {
+  window.alert("Najprv vyhľadaj a vyber človeka zo zoznamu.");
+  personSearch.focus();
+  return;
+}
 
 if (assignedMap[selectedUid]) return;
 
@@ -530,7 +598,7 @@ return;
 await set(ref(db, `lineAssignments/${lineObj.key}/${selectedUid}`), true);
 });
 
-assignRow.append(userSelect, addBtn);
+assignRow.append(searchWrap, addBtn);
 card.appendChild(assignRow);
 }
 
