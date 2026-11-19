@@ -69,6 +69,7 @@ const employeeAnnouncementText = document.getElementById("employeeAnnouncementTe
 const confirmAssignmentBtn = document.getElementById("confirmAssignmentBtn");
 let latestDailyAssignment = null;
 let latestDailyAnnouncements = null;
+let latestDailyRead = null;
 const employeeWelcomeCard = document.getElementById("employeeWelcomeCard");
 const employeeWelcomeTitle = document.getElementById("employeeWelcomeTitle");
 const employeeAssignmentText = document.getElementById("employeeAssignmentText");
@@ -191,6 +192,32 @@ function todayKey() {
 const now = new Date();
 return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
+function currentDailyConfirmationVersion() {
+const uid = auth.currentUser?.uid;
+const assignmentVersion = latestDailyAssignment?.updatedAt || latestDailyAssignment?.createdAt || 0;
+const notices = latestDailyAnnouncements ? Object.values(latestDailyAnnouncements) : [];
+const assignedLine = latestLinesList.find((line) => latestLineAssignments?.[line.key]?.[uid]);
+const lineKey = latestDailyAssignment?.lineKey || assignedLine?.key || "";
+const relevantNoticeVersions = notices
+  .filter((notice) => notice.active !== false && (
+    notice.targetType === "all" ||
+    (notice.targetType === "person" && notice.targetValue === uid) ||
+    (notice.targetType === "line" && notice.targetValue === lineKey)
+  ))
+  .map((notice) => notice.updatedAt || notice.createdAt || 0)
+  .sort((a, b) => a - b);
+return `${assignmentVersion}:${relevantNoticeVersions.join(",")}`;
+}
+function renderReadConfirmation() {
+if (!confirmAssignmentBtn || isMajster()) return;
+const currentVersion = currentDailyConfirmationVersion();
+const isConfirmed = Boolean(
+  latestDailyRead &&
+  latestDailyRead.confirmedVersion === currentVersion
+);
+confirmAssignmentBtn.disabled = isConfirmed;
+confirmAssignmentBtn.innerText = isConfirmed ? "Prečítané" : "Potvrdzujem prečítanie";
+}
 function renderEmployeeAnnouncement() {
 if (!employeeAnnouncementBox || isMajster()) return;
 const uid = auth.currentUser?.uid;
@@ -205,10 +232,12 @@ notice.targetType === "all" ||
 const text = relevant.map((notice) => notice.text).filter(Boolean).join("\n\n");
 if (!text) {
 employeeAnnouncementBox.style.display = "none";
+renderReadConfirmation();
 return;
 }
 employeeAnnouncementBox.style.display = "block";
 employeeAnnouncementText.innerText = text;
+renderReadConfirmation();
 }
 function subscribeEmployeeDailyData(user) {
 if (!user || isMajster()) return;
@@ -217,10 +246,16 @@ onValue(ref(db, `dailyAssignments/${date}/${user.uid}`), (snapshot) => {
 latestDailyAssignment = snapshot.exists() ? snapshot.val() : null;
 renderEmployeeWelcome();
 renderEmployeeAnnouncement();
+renderReadConfirmation();
 });
 onValue(ref(db, `dailyAnnouncements/${date}`), (snapshot) => {
 latestDailyAnnouncements = snapshot.exists() ? snapshot.val() : null;
 renderEmployeeAnnouncement();
+renderReadConfirmation();
+});
+onValue(ref(db, `dailyReads/${date}/${user.uid}`), (snapshot) => {
+latestDailyRead = snapshot.exists() ? snapshot.val() : null;
+renderReadConfirmation();
 });
 }
 function renderEmployeeWelcome() {
@@ -891,7 +926,9 @@ tdDecision.innerText = item.decisionNote || "";
 tr.append(tdType, tdTerm, tdNote, tdStatus, tdDecision);
 
 const tdAction = document.createElement("td");
-if (isMajster() && item.type === "dovolenka" && item.status === "pending") {
+tdAction.className = "table-actions";
+
+if (isMajster() && (item.type === "dovolenka" || item.type === "nahradne_volno") && item.status === "pending") {
 const approveBtn = document.createElement("button");
 approveBtn.type = "button";
 approveBtn.className = "approve-btn";
@@ -922,10 +959,22 @@ decidedAt: Date.now(),
 decidedBy: auth.currentUser.uid
 });
 });
-tdAction.className = "table-actions";
 tdAction.append(approveBtn, rejectBtn);
-} else {
-tdAction.innerText = "";
+}
+
+if (isMajster()) {
+const deleteRequestBtn = document.createElement("button");
+deleteRequestBtn.type = "button";
+deleteRequestBtn.className = "delete-btn";
+deleteRequestBtn.innerText = "Zmazať";
+deleteRequestBtn.addEventListener("click", async () => {
+const confirmed = window.confirm(
+`Naozaj chceš natrvalo zmazať záznam ${absenceTypeLabel(item.type)} pre ${item.employeeName || getUserDisplayName(item.uid)}?`
+);
+if (!confirmed) return;
+await remove(ref(db, `absences/${item.uid}/${item.requestId}`));
+});
+tdAction.appendChild(deleteRequestBtn);
 }
 tr.appendChild(tdAction);
 absencesTableBody.appendChild(tr);
@@ -1271,10 +1320,9 @@ const user = auth.currentUser;
 if (!user) return;
 await set(ref(db, `dailyReads/${todayKey()}/${user.uid}`), {
 confirmedAt: Date.now(),
+confirmedVersion: currentDailyConfirmationVersion(),
 uid: user.uid
 });
-confirmAssignmentBtn.disabled = true;
-confirmAssignmentBtn.innerText = "Prečítané";
 });
 }
 
