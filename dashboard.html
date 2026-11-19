@@ -27,6 +27,7 @@ href="style.css">
 
 <div class="user-bar">
 <span id="currentUser">Načítavam...</span>
+<span id="roleBadge" class="role-badge"></span>
 <button id="logoutBtn" type="button">
 Odhlásiť
 </button>
@@ -62,6 +63,10 @@ Odhlásiť
 
 <div id="employeesView" style="display: none;">
 
+<p id="employeeRoleNotice" class="role-notice" style="display: none;">
+Prihlásený si s rolou <strong>zamestnanec</strong> – máš iba právo na prezeranie zoznamu zamestnancov.
+</p>
+
 <form id="addEmployeeForm" class="employee-form">
 <input type="text" id="empPersonalNumber" placeholder="Osobné číslo" required>
 <input type="text" id="empFirstName" placeholder="Meno" required>
@@ -78,7 +83,7 @@ Odhlásiť
 <th>Meno</th>
 <th>Priezvisko</th>
 <th>Telefónne číslo</th>
-<th>Akcia</th>
+<th id="actionColHeader">Akcia</th>
 </tr>
 </thead>
 <tbody id="employeesTableBody">
@@ -93,6 +98,7 @@ Odhlásiť
 
 <div id="usersView" style="display: none;">
 <p>Zoznam používateľov (aktuálne v databáze: <strong id="usersDetailCount">0</strong>).</p>
+<div id="usersRoleList"></div>
 </div>
 
 <div id="groupsView" style="display: none;">
