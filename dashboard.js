@@ -62,6 +62,7 @@ const backToOverviewBtn = document.getElementById("backToOverviewBtn");
 const usersCard = document.getElementById("usersCard");
 const employeesCard = document.getElementById("employeesCard");
 const linesCard = document.getElementById("linesCard");
+const calendarCard = document.getElementById("calendarCard");
 const employeeWelcomeCard = document.getElementById("employeeWelcomeCard");
 const employeeWelcomeTitle = document.getElementById("employeeWelcomeTitle");
 const employeeAssignmentText = document.getElementById("employeeAssignmentText");
@@ -994,6 +995,10 @@ renderAbsences();
 document.querySelectorAll(".clickable-card").forEach((card) => {
 card.addEventListener("click", () => {
 const target = card.getAttribute("data-section");
+if (target === "calendar") {
+location.href = "calendar.html";
+return;
+}
 openSection(target);
 });
 });
