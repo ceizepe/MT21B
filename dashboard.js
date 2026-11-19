@@ -95,7 +95,9 @@ const absenceAdminNotice = document.getElementById("absenceAdminNotice");
 
 let latestAbsencesData = null;
 let absencesSubscribedPath = "";
+let absencesUnsubscribe = null;
 let calendarSubscribedPath = "";
+let calendarUnsubscribe = null;
 let latestCalendarOverrides = null;
 let selectedCalendarUid = "";
 
@@ -232,9 +234,9 @@ if (actionColHeader) {
 actionColHeader.style.display = isMajster() ? "" : "none";
 }
 
-renderEmployeesTable(latestEmployeesData);
-renderUsersList(latestUsersData);
-renderLinesBoard();
+if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
+if (usersView?.style.display === "block") renderUsersList(latestUsersData);
+if (linesView?.style.display === "block") renderLinesBoard();
 }
 
 async function ensureUserRole(user) {
@@ -743,14 +745,19 @@ calendarEmployeeSelect.value = selectedCalendarUid;
 function subscribeToCalendar(uid) {
 if (!uid) return;
 const path = `workCalendars/${uid}`;
-if (calendarSubscribedPath === path) {
+if (calendarSubscribedPath === path && calendarUnsubscribe) {
 renderWorkCalendar();
 return;
 }
+if (calendarUnsubscribe) {
+calendarUnsubscribe();
+calendarUnsubscribe = null;
+}
 calendarSubscribedPath = path;
-onValue(ref(db, path), (snapshot) => {
+if (workCalendar) workCalendar.innerHTML = "<p>Načítavam kalendár...</p>";
+calendarUnsubscribe = onValue(ref(db, path), (snapshot) => {
 latestCalendarOverrides = snapshot.exists() ? snapshot.val() : null;
-renderWorkCalendar();
+if (calendarView?.style.display === "block") renderWorkCalendar();
 });
 }
 
@@ -959,11 +966,21 @@ if (headerPerson) headerPerson.style.display = isMajster() ? "" : "none";
 
 function subscribeToAbsences(user) {
 const path = isMajster() ? "absences" : `absences/${user.uid}`;
-if (absencesSubscribedPath === path) return;
-absencesSubscribedPath = path;
-onValue(ref(db, path), (snapshot) => {
-latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
+if (absencesSubscribedPath === path && absencesUnsubscribe) {
 renderAbsences();
+return;
+}
+if (absencesUnsubscribe) {
+absencesUnsubscribe();
+absencesUnsubscribe = null;
+}
+absencesSubscribedPath = path;
+if (absencesTableBody) {
+absencesTableBody.innerHTML = '<tr><td colspan="7">Načítavam neprítomnosti...</td></tr>';
+}
+absencesUnsubscribe = onValue(ref(db, path), (snapshot) => {
+latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
+if (absencesView?.style.display === "block") renderAbsences();
 });
 }
 
@@ -1006,8 +1023,8 @@ if (linesCountEl) {
 linesCountEl.innerText = latestLinesList.length;
 }
 
-renderLinesBoard();
-renderUsersList(latestUsersData);
+if (linesView?.style.display === "block") renderLinesBoard();
+if (usersView?.style.display === "block") renderUsersList(latestUsersData);
 });
 
 onValue(ref(db, "employees"), (snapshot) => {
@@ -1019,7 +1036,7 @@ if (countEl) {
 countEl.innerText = val ? Object.keys(val).length : 0;
 }
 
-renderEmployeesTable(val);
+if (employeesView?.style.display === "block") renderEmployeesTable(val);
 });
 
 onValue(ref(db, "users"), (snapshot) => {
@@ -1050,15 +1067,15 @@ return;
 }
 }
 
-renderUsersList(val);
-renderLinesBoard();
-fillCalendarEmployeeSelect();
+if (usersView?.style.display === "block") renderUsersList(val);
+if (linesView?.style.display === "block") renderLinesBoard();
+if (calendarView?.style.display === "block" && isMajster()) fillCalendarEmployeeSelect();
 });
 
 onValue(ref(db, "lineAssignments"), (snapshot) => {
 latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
-renderLinesBoard();
-renderUsersList(latestUsersData);
+if (linesView?.style.display === "block") renderLinesBoard();
+if (usersView?.style.display === "block") renderUsersList(latestUsersData);
 });
 }
 
@@ -1098,7 +1115,7 @@ subscribeToCalendar(selectedCalendarUid);
 } else if (sectionName === "absences") {
 detailTitle.innerText = "Neprítomnosti";
 absencesView.style.display = "block";
-renderAbsences();
+subscribeToAbsences(auth.currentUser);
 }
 }
 
@@ -1262,7 +1279,6 @@ renderWorkCalendar();
 if (calendarEmployeeSelect) {
 calendarEmployeeSelect.addEventListener("change", () => {
 selectedCalendarUid = calendarEmployeeSelect.value;
-calendarSubscribedPath = "";
 latestCalendarOverrides = null;
 subscribeToCalendar(selectedCalendarUid);
 });
@@ -1315,9 +1331,7 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
 await ensureUserRole(user);
 subscribeToData();
-subscribeToAbsences(user);
 selectedCalendarUid = user.uid;
-subscribeToCalendar(user.uid);
 } else {
 location.href = "index.html";
 }
