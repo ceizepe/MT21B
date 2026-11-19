@@ -314,14 +314,14 @@ button{
 /* Osobné pracovné priradenie zamestnanca */
 .employee-welcome-card {
   order: 99;
-  flex: 0 0 100%;
+  flex: 0 0 calc(100% - 40px);
   width: min(1000px, calc(100% - 40px));
   max-width: 1000px;
-  margin: 95px auto 0;
+  margin: 165px auto 0;
   padding: 28px 32px;
   border-left: 5px solid #d70000;
-  background: rgba(255, 255, 255, 0.74);
-  backdrop-filter: blur(1.5px);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(1px);
   text-align: left;
   position: relative;
   z-index: 2;
@@ -337,7 +337,7 @@ button{
   padding: 15px 16px;
   border: 1px solid rgba(196, 203, 213, .8);
   border-radius: 8px;
-  background: rgba(248, 249, 251, 0.68);
+  background: rgba(248, 249, 251, 0.66);
 }
 .employee-production-row span { color: #354052; }
 .today-production { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: baseline; }
@@ -345,14 +345,19 @@ button{
 .assignment-muted { color: #687386; }
 .line-production-info { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 10px 0 2px; color: #4a5568; font-size: 13px; }
 
-/* Zamestnancovi ostanú dve malé karty nad oznamom. */
+/* Karty zamestnanca sú na prvom riadku a presne v strede. */
 #calendarCard,
-.card[data-section="absences"] { order: 1; }
+.card[data-section="absences"] {
+  order: 1;
+  flex: 0 0 220px;
+  margin: 0;
+}
 
 @media (max-width: 700px) {
   .employee-welcome-card {
+    flex-basis: calc(100% - 24px);
     width: calc(100% - 24px);
-    margin-top: 60px;
+    margin-top: 90px;
     padding: 22px 20px;
   }
   .employee-production-row { grid-template-columns: 1fr; gap: 8px; }
