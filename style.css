@@ -7,9 +7,40 @@ body{
 nav{
     background:#003366;
     color:white;
-    padding:15px;
+    padding:15px 20px;
     display:flex;
     justify-content:space-between;
+    align-items:center;
+}
+
+.brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.brand h2{
+    margin:0;
+    font-size:20px;
+}
+
+.brand-logo{
+    height:34px;
+    width:auto;
+    background:white;
+    padding:4px 8px;
+    border-radius:4px;
+}
+
+.user-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.user-bar button{
+    width:auto;
+    padding:8px 14px;
 }
 
 .login-container{
