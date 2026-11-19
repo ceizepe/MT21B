@@ -81,6 +81,14 @@ const linesRoleNotice = document.getElementById("linesRoleNotice");
 const linesContainer = document.getElementById("linesContainer");
 const roleBadge = document.getElementById("roleBadge");
 
+function setupEmployeesUI() {
+const phoneInput = document.getElementById("empPhone");
+if (phoneInput) {
+phoneInput.required = false;
+phoneInput.placeholder = "Telefónne číslo (nepovinné)";
+}
+}
+
 function normalizeShortcut(raw) {
 return raw
   .trim()
@@ -233,7 +241,11 @@ employeesTableBody.innerHTML = `<tr><td colspan="${colSpan}">Zatiaľ nie sú pri
 return;
 }
 
-const entries = Object.entries(employeesObj);
+const entries = Object.entries(employeesObj).sort((a, b) => {
+const nameA = `${a[1]?.lastName || ""} ${a[1]?.firstName || ""}`.toLowerCase();
+const nameB = `${b[1]?.lastName || ""} ${b[1]?.firstName || ""}`.toLowerCase();
+return nameA.localeCompare(nameB, "sk");
+});
 
 entries.forEach(([id, emp]) => {
 const tr = document.createElement("tr");
@@ -254,15 +266,66 @@ tr.append(tdPersonal, tdFirst, tdLast, tdPhone);
 
 if (isMajster()) {
 const tdAction = document.createElement("td");
+tdAction.style.display = "flex";
+tdAction.style.gap = "8px";
+tdAction.style.flexWrap = "wrap";
+
+const editBtn = document.createElement("button");
+editBtn.type = "button";
+editBtn.className = "secondary-btn";
+editBtn.innerText = "Upraviť";
+editBtn.addEventListener("click", async () => {
+const nextPersonalNumber = window.prompt("Osobné číslo:", emp.personalNumber || "");
+if (nextPersonalNumber === null) return;
+
+const nextFirstName = window.prompt("Meno:", emp.firstName || "");
+if (nextFirstName === null) return;
+
+const nextLastName = window.prompt("Priezvisko:", emp.lastName || "");
+if (nextLastName === null) return;
+
+const nextPhone = window.prompt("Telefónne číslo (môže zostať prázdne):", emp.phone || "");
+if (nextPhone === null) return;
+
+const personalNumber = nextPersonalNumber.trim();
+const firstName = nextFirstName.trim();
+const lastName = nextLastName.trim();
+const phone = nextPhone.trim();
+
+if (!personalNumber || !firstName || !lastName) {
+window.alert("Osobné číslo, meno aj priezvisko musia byť vyplnené.");
+return;
+}
+
+await update(ref(db, `employees/${id}`), {
+personalNumber,
+firstName,
+lastName,
+phone
+});
+
+const linkedUid = emp.userUid || (latestUsersData?.[id] ? id : "");
+if (linkedUid && latestUsersData?.[linkedUid]) {
+await update(ref(db, `users/${linkedUid}`), {
+personalNumber,
+firstName,
+lastName,
+name: `${firstName} ${lastName}`
+});
+}
+});
+
 const deleteBtn = document.createElement("button");
 deleteBtn.type = "button";
 deleteBtn.className = "delete-btn";
 deleteBtn.innerText = "Zmazať";
 deleteBtn.addEventListener("click", async () => {
+const confirmed = window.confirm(`Naozaj chceš odstrániť zamestnanca ${emp.firstName || ""} ${emp.lastName || ""}?`);
+if (!confirmed) return;
 await remove(ref(db, `employees/${id}`));
 });
 
-tdAction.appendChild(deleteBtn);
+tdAction.append(editBtn, deleteBtn);
 tr.appendChild(tdAction);
 }
 
@@ -606,6 +669,38 @@ linesContainer.appendChild(card);
 });
 }
 
+async function syncUsersToEmployees(usersObj, employeesObj) {
+if (!isMajster() || !usersObj) return;
+
+const writes = [];
+Object.entries(usersObj).forEach(([uid, userData]) => {
+const existingEmployee = employeesObj?.[uid];
+if (existingEmployee) return;
+
+const fullName = (userData.name || "").trim();
+let firstName = (userData.firstName || "").trim();
+let lastName = (userData.lastName || "").trim();
+
+if (!firstName && fullName) {
+const parts = fullName.split(/\s+/).filter(Boolean);
+firstName = parts.shift() || "";
+lastName = lastName || parts.join(" ");
+}
+
+writes.push(set(ref(db, `employees/${uid}`), {
+personalNumber: userData.personalNumber || "",
+firstName: firstName || userData.loginId || "Používateľ",
+lastName,
+phone: "",
+userUid: uid
+}));
+});
+
+if (writes.length > 0) {
+await Promise.all(writes);
+}
+}
+
 function subscribeToData() {
 if (dataLoaded) return;
 dataLoaded = true;
@@ -640,6 +735,11 @@ renderEmployeesTable(val);
 onValue(ref(db, "users"), (snapshot) => {
 const val = snapshot.exists() ? snapshot.val() : null;
 latestUsersData = val;
+if (isMajster()) {
+syncUsersToEmployees(val, latestEmployeesData).catch((error) => {
+console.error("Nepodarilo sa synchronizovať používateľov so zamestnancami:", error);
+});
+}
 const count = val ? Object.keys(val).length : 0;
 
 const countEl = document.getElementById("userCount");
@@ -749,13 +849,12 @@ const personalInput = document.getElementById("empPersonalNumber");
 const firstInput = document.getElementById("empFirstName");
 const lastInput = document.getElementById("empLastName");
 const phoneInput = document.getElementById("empPhone");
-
 const personalNumber = personalInput.value.trim();
 const firstName = firstInput.value.trim();
 const lastName = lastInput.value.trim();
-const phone = phoneInput.value.trim();
+const phone = phoneInput ? phoneInput.value.trim() : "";
 
-if (!personalNumber || !firstName || !lastName || !phone) return;
+if (!personalNumber || !firstName || !lastName) return;
 
 const newEmpRef = push(ref(db, "employees"));
 await set(newEmpRef, {
@@ -809,11 +908,26 @@ const secondaryAuth = getAuth(secondaryApp);
 const cred = await createUserWithEmailAndPassword(secondaryAuth, authEmail, password);
 const newUid = cred.user.uid;
 
+const nameParts = fullNameWithDiacritics.split(/\s+/).filter(Boolean);
+const firstName = nameParts.shift() || fullNameWithDiacritics;
+const lastName = nameParts.join(" ");
+
 await set(ref(db, `users/${newUid}`), {
 email: authEmail,
 loginId: cleanShortcut,
 name: fullNameWithDiacritics,
+firstName,
+lastName,
+personalNumber: password,
 role: "zamestnanec"
+});
+
+await set(ref(db, `employees/${newUid}`), {
+personalNumber: password,
+firstName,
+lastName,
+phone: "",
+userUid: newUid
 });
 
 await secondarySignOut(secondaryAuth);
@@ -837,6 +951,8 @@ if (submitBtn) submitBtn.disabled = false;
 }
 });
 }
+
+setupEmployeesUI();
 
 onAuthStateChanged(auth, async (user) => {
 const userEl = document.getElementById("currentUser");
