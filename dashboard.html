@@ -3,10 +3,12 @@
 
 <head>
   <meta charset="UTF-8">
+
   <title>MT21B Dashboard</title>
 
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="lines-layout.css">
+  <link rel="stylesheet" href="calendar.css">
 </head>
 
 <body>
@@ -16,6 +18,7 @@
   <nav class="topbar">
 
     <div class="brand">
+
       <img
         src="brose-logo-brose-fahrzeugteile-gmbh-co-k-11563170547fgficxf1fi.png"
         alt="Brose logo"
@@ -23,24 +26,50 @@
       >
 
       <h2>MT21B Workforce Manager</h2>
+
     </div>
 
     <div class="user-bar">
-      <span id="currentUser">Načítavam...</span>
-      <span id="roleBadge" class="role-badge"></span>
 
-      <button id="logoutBtn" type="button">
+      <span id="currentUser">Načítavam...</span>
+
+      <span
+        id="roleBadge"
+        class="role-badge"
+      ></span>
+
+      <button
+        id="logoutBtn"
+        type="button"
+      >
         Odhlásiť
       </button>
+
     </div>
 
   </nav>
 
-  <div id="overviewSection" class="cards">
+  <div
+    id="overviewSection"
+    class="cards"
+  >
 
-    <div class="card clickable-card" data-section="employees">
+    <div
+      id="employeesCard"
+      class="card clickable-card"
+      data-section="employees"
+    >
       <h3>Zamestnanci</h3>
       <p id="employeeCount">0</p>
+    </div>
+
+    <div
+      id="calendarCard"
+      class="card clickable-card"
+      data-section="calendar"
+    >
+      <h3>Pracovný kalendár</h3>
+      <p id="calendarCardText">Moje zmeny</p>
     </div>
 
     <div
@@ -53,12 +82,18 @@
       <p id="userCount">0</p>
     </div>
 
-    <div class="card clickable-card" data-section="lines">
+    <div
+      class="card clickable-card"
+      data-section="lines"
+    >
       <h3>Linky</h3>
       <p id="linesCount">0</p>
     </div>
 
-    <div class="card clickable-card" data-section="absences">
+    <div
+      class="card clickable-card"
+      data-section="absences"
+    >
       <h3>Neprítomnosti</h3>
       <p>Dovolenky, PN a paragrafy</p>
     </div>
@@ -72,6 +107,7 @@
   >
 
     <div class="detail-header">
+
       <button
         id="backToOverviewBtn"
         type="button"
@@ -81,275 +117,17 @@
       </button>
 
       <h2 id="detailTitle">Detail</h2>
+
     </div>
 
     <!-- ZAMESTNANCI -->
 
-    <div id="employeesView" style="display: none;">
+    <div
+      id="employeesView"
+      style="display: none;"
+    >
 
       <p
         id="employeeRoleNotice"
         class="role-notice"
-        style="display: none;"
-      >
-        Prihlásený si s rolou
-        <strong>zamestnanec</strong>.
-        Máš iba právo na prezeranie zoznamu zamestnancov.
-      </p>
-
-      <form id="addEmployeeForm" class="employee-form">
-
-        <input
-          type="text"
-          id="empPersonalNumber"
-          placeholder="Osobné číslo"
-          required
-        >
-
-        <input
-          type="text"
-          id="empFirstName"
-          placeholder="Meno"
-          required
-        >
-
-        <input
-          type="text"
-          id="empLastName"
-          placeholder="Priezvisko"
-          required
-        >
-
-        <input
-          type="tel"
-          id="empPhone"
-          placeholder="Telefónne číslo (nepovinné)"
-        >
-
-        <button type="submit" class="primary-btn">
-          Pridať
-        </button>
-
-      </form>
-
-      <div class="table-wrap">
-
-        <table class="data-table">
-
-          <thead>
-            <tr>
-              <th>Osobné číslo</th>
-              <th>Meno</th>
-              <th>Priezvisko</th>
-              <th>Telefónne číslo</th>
-              <th id="actionColHeader">Akcia</th>
-            </tr>
-          </thead>
-
-          <tbody id="employeesTableBody">
-            <tr>
-              <td colspan="5">
-                Načítavam zamestnancov...
-              </td>
-            </tr>
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-
-    <!-- POUŽÍVATELIA -->
-
-    <div id="usersView" style="display: none;">
-
-      <p>
-        Zoznam používateľov, aktuálne v databáze:
-        <strong id="usersDetailCount">0</strong>
-      </p>
-
-      <form id="addUserForm" class="employee-form">
-
-        <input
-          type="text"
-          id="newUserName"
-          placeholder="Meno a priezvisko (napr. Ján Novák)"
-          required
-        >
-
-        <input
-          type="text"
-          id="newUserShortcut"
-          placeholder="Prihlasovacia skratka (napr. jnovak)"
-          required
-        >
-
-        <input
-          type="password"
-          id="newUserPassword"
-          placeholder="Heslo alebo osobné číslo (min. 6 znakov)"
-          required
-        >
-
-        <button type="submit" class="primary-btn">
-          Pridať používateľa
-        </button>
-
-      </form>
-
-      <p
-        id="addUserStatus"
-        class="auth-message"
-        style="display: none;"
-      ></p>
-
-      <h3>Zoznam používateľov a priradenie na linky</h3>
-
-      <div id="usersRoleList"></div>
-
-    </div>
-
-    <!-- LINKY -->
-
-    <div id="linesView" style="display: none;">
-
-      <p
-        id="linesRoleNotice"
-        class="role-notice"
-        style="display: none;"
-      >
-        Prihlásený si s rolou
-        <strong>zamestnanec</strong>.
-        Vidíš aktuálne rozdelenie ľudí na linkách.
-        Upravovať ho môže iba majster.
-      </p>
-
-      <form
-        id="addLineForm"
-        class="employee-form"
-        style="display: none;"
-      >
-
-        <input
-          type="text"
-          id="newLineName"
-          placeholder="Názov novej linky"
-          required
-        >
-
-        <button type="submit" class="primary-btn">
-          Pridať linku
-        </button>
-
-      </form>
-
-      <div id="linesContainer" class="lines-grid"></div>
-
-    </div>
-
-    <!-- NEPRÍTOMNOSTI -->
-
-    <div id="absencesView" style="display: none;">
-
-      <p
-        id="absenceAdminNotice"
-        class="role-notice"
-        style="display: none;"
-      >
-        Ako majster vidíš všetky nahlásené neprítomnosti.
-        Žiadosti o dovolenku môžeš schváliť alebo zamietnuť
-        s uvedením dôvodu.
-      </p>
-
-      <form id="absenceForm" class="absence-form">
-
-        <label>
-          Typ neprítomnosti
-
-          <select id="absenceType" required>
-            <option value="">Vyber typ</option>
-            <option value="dovolenka">Dovolenka</option>
-            <option value="pn">PN</option>
-            <option value="paragraf">Paragraf</option>
-          </select>
-        </label>
-
-        <label>
-          Od
-
-          <input
-            type="date"
-            id="absenceDateFrom"
-            required
-          >
-        </label>
-
-        <label>
-          Do
-
-          <input
-            type="date"
-            id="absenceDateTo"
-            required
-          >
-        </label>
-
-        <label class="absence-note-field">
-          Poznámka
-
-          <textarea
-            id="absenceNote"
-            rows="2"
-            placeholder="Nepovinná poznámka"
-          ></textarea>
-        </label>
-
-        <button type="submit" class="primary-btn">
-          Odoslať
-        </button>
-
-      </form>
-
-      <p
-        id="absenceMessage"
-        class="auth-message"
-        style="display: none;"
-      ></p>
-
-      <div class="table-wrap">
-
-        <table class="data-table absence-table">
-
-          <thead>
-            <tr>
-              <th id="absencePersonHeader">Zamestnanec</th>
-              <th>Typ</th>
-              <th>Termín</th>
-              <th>Poznámka</th>
-              <th>Stav</th>
-              <th>Vyjadrenie</th>
-              <th>Akcia</th>
-            </tr>
-          </thead>
-
-          <tbody id="absencesTableBody">
-            <tr>
-              <td colspan="7">
-                Načítavam neprítomnosti...
-              </td>
-            </tr>
-          </tbody>
-
-        </table>
-
-      </div>
-
-    </div>
-
-  </div>
-
-  <script type="module" src="dashboard.js"></script>
-
-</body>
-</html>
+      
