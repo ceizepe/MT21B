@@ -1,5 +1,21 @@
-import { db, auth }
+import { db, auth, firebaseConfig }
 from "./firebase-config.js";
+
+import {
+initializeApp,
+getApps,
+deleteApp
+}
+from
+"https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+
+import {
+getAuth,
+createUserWithEmailAndPassword,
+signOut as secondarySignOut
+}
+from
+"https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
 import {
 ref,
@@ -29,6 +45,7 @@ const overviewSection = document.getElementById("overviewSection");
 const detailSection = document.getElementById("detailSection");
 const detailTitle = document.getElementById("detailTitle");
 const backToOverviewBtn = document.getElementById("backToOverviewBtn");
+const usersCard = document.getElementById("usersCard");
 
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
@@ -38,6 +55,9 @@ const addEmployeeForm = document.getElementById("addEmployeeForm");
 const employeeRoleNotice = document.getElementById("employeeRoleNotice");
 const actionColHeader = document.getElementById("actionColHeader");
 const employeesTableBody = document.getElementById("employeesTableBody");
+
+const addUserForm = document.getElementById("addUserForm");
+const addUserStatus = document.getElementById("addUserStatus");
 const usersRoleList = document.getElementById("usersRoleList");
 const roleBadge = document.getElementById("roleBadge");
 
@@ -52,11 +72,32 @@ function isMajster() {
 return currentUserRole === "majster";
 }
 
+function showAddUserMessage(text, isError = true) {
+if (!addUserStatus) return;
+addUserStatus.style.display = "block";
+addUserStatus.innerText = text;
+addUserStatus.classList.remove("msg-error", "msg-success");
+addUserStatus.classList.add(isError ? "msg-error" : "msg-success");
+}
+
+function backToOverview() {
+detailSection.style.display = "none";
+overviewSection.style.display = "flex";
+}
+
 function applyRoleUI() {
 if (roleBadge) {
 roleBadge.innerText = currentUserRole;
 roleBadge.classList.remove("role-majster", "role-zamestnanec");
 roleBadge.classList.add(isMajster() ? "role-majster" : "role-zamestnanec");
+}
+
+if (usersCard) {
+usersCard.style.display = isMajster() ? "block" : "none";
+}
+
+if (!isMajster() && usersView && usersView.style.display === "block") {
+backToOverview();
 }
 
 if (addEmployeeForm) {
@@ -147,7 +188,7 @@ if (!usersRoleList) return;
 
 usersRoleList.innerHTML = "";
 
-if (!usersObj) return;
+if (!isMajster() || !usersObj) return;
 
 const entries = Object.entries(usersObj);
 const list = document.createElement("ul");
@@ -159,10 +200,9 @@ const displayName = u.name || u.email || uid;
 const roleText = normalizeRole(u.role);
 
 const labelSpan = document.createElement("span");
-labelSpan.innerText = `${displayName} (${roleText})`;
+labelSpan.innerText = `${displayName}${u.email ? ` (${u.email})` : ""} — ${roleText}`;
 li.appendChild(labelSpan);
 
-if (isMajster()) {
 const select = document.createElement("select");
 select.className = "role-select";
 
@@ -184,8 +224,6 @@ role: select.value
 });
 
 li.appendChild(select);
-}
-
 list.appendChild(li);
 });
 
@@ -238,6 +276,10 @@ renderUsersList(val);
 }
 
 function openSection(sectionName) {
+if (sectionName === "users" && !isMajster()) {
+return;
+}
+
 overviewSection.style.display = "none";
 detailSection.style.display = "block";
 
@@ -267,10 +309,7 @@ openSection(target);
 });
 
 if (backToOverviewBtn) {
-backToOverviewBtn.addEventListener("click", () => {
-detailSection.style.display = "none";
-overviewSection.style.display = "flex";
-});
+backToOverviewBtn.addEventListener("click", backToOverview);
 }
 
 if (addEmployeeForm) {
@@ -301,6 +340,66 @@ phone
 
 addEmployeeForm.reset();
 personalInput.focus();
+});
+}
+
+if (addUserForm) {
+addUserForm.addEventListener("submit", async (e) => {
+e.preventDefault();
+
+if (!isMajster()) return;
+
+const nameInput = document.getElementById("newUserName");
+const emailInput = document.getElementById("newUserEmail");
+const passwordInput = document.getElementById("newUserPassword");
+const submitBtn = addUserForm.querySelector("button[type='submit']");
+
+const customName = nameInput.value.trim();
+const email = emailInput.value.trim();
+const password = passwordInput.value;
+
+if (!email || !password) return;
+
+if (password.length < 6) {
+showAddUserMessage("Heslo musí mať aspoň 6 znakov.", true);
+return;
+}
+
+if (submitBtn) submitBtn.disabled = true;
+
+let secondaryApp = null;
+
+try {
+const existingSecondary = getApps().find((a) => a.name === "SecondaryUserCreator");
+secondaryApp = existingSecondary || initializeApp(firebaseConfig, "SecondaryUserCreator");
+const secondaryAuth = getAuth(secondaryApp);
+
+const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+const newUid = cred.user.uid;
+const fallbackName = email.split("@")[0] || "Používateľ";
+
+await set(ref(db, `users/${newUid}`), {
+email,
+name: customName || fallbackName,
+role: "zamestnanec"
+});
+
+await secondarySignOut(secondaryAuth);
+addUserForm.reset();
+showAddUserMessage(`Používateľ ${email} bol vytvorený s rolou zamestnanec.`, false);
+} catch (err) {
+const code = err?.code || "";
+let msg = err?.message || "Nepodarilo sa vytvoriť používateľa.";
+if (code === "auth/email-already-in-use") msg = "Tento e-mail už účet má.";
+else if (code === "auth/invalid-email") msg = "Neplatný formát e-mailu.";
+else if (code === "auth/weak-password") msg = "Heslo je príliš slabé (min. 6 znakov).";
+showAddUserMessage(msg, true);
+} finally {
+if (secondaryApp) {
+await deleteApp(secondaryApp).catch(() => {});
+}
+if (submitBtn) submitBtn.disabled = false;
+}
 });
 }
 
