@@ -42,7 +42,7 @@ Odhlásiť
 <p id="employeeCount">0</p>
 </div>
 
-<div class="card clickable-card" data-section="users">
+<div id="usersCard" class="card clickable-card" data-section="users" style="display: none;">
 <h3>Používatelia</h3>
 <p id="userCount">0</p>
 </div>
@@ -98,6 +98,16 @@ Prihlásený si s rolou <strong>zamestnanec</strong> – máš iba právo na pre
 
 <div id="usersView" style="display: none;">
 <p>Zoznam používateľov (aktuálne v databáze: <strong id="usersDetailCount">0</strong>).</p>
+
+<form id="addUserForm" class="employee-form">
+<input type="text" id="newUserName" placeholder="Meno (nepovinné)">
+<input type="email" id="newUserEmail" placeholder="E-mail" required>
+<input type="password" id="newUserPassword" placeholder="Heslo (min. 6 znakov)" required>
+<button type="submit" class="primary-btn">Pridať používateľa</button>
+</form>
+
+<p id="addUserStatus" class="auth-message" style="display: none;"></p>
+
 <div id="usersRoleList"></div>
 </div>
 
