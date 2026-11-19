@@ -95,9 +95,7 @@ const absenceAdminNotice = document.getElementById("absenceAdminNotice");
 
 let latestAbsencesData = null;
 let absencesSubscribedPath = "";
-let absencesUnsubscribe = null;
 let calendarSubscribedPath = "";
-let calendarUnsubscribe = null;
 let latestCalendarOverrides = null;
 let selectedCalendarUid = "";
 
@@ -234,9 +232,9 @@ if (actionColHeader) {
 actionColHeader.style.display = isMajster() ? "" : "none";
 }
 
-if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
-if (usersView?.style.display === "block") renderUsersList(latestUsersData);
-if (linesView?.style.display === "block") renderLinesBoard();
+renderEmployeesTable(latestEmployeesData);
+renderUsersList(latestUsersData);
+renderLinesBoard();
 }
 
 async function ensureUserRole(user) {
@@ -745,19 +743,14 @@ calendarEmployeeSelect.value = selectedCalendarUid;
 function subscribeToCalendar(uid) {
 if (!uid) return;
 const path = `workCalendars/${uid}`;
-if (calendarSubscribedPath === path && calendarUnsubscribe) {
+if (calendarSubscribedPath === path) {
 renderWorkCalendar();
 return;
 }
-if (calendarUnsubscribe) {
-calendarUnsubscribe();
-calendarUnsubscribe = null;
-}
 calendarSubscribedPath = path;
-if (workCalendar) workCalendar.innerHTML = "<p>Načítavam kalendár...</p>";
-calendarUnsubscribe = onValue(ref(db, path), (snapshot) => {
+onValue(ref(db, path), (snapshot) => {
 latestCalendarOverrides = snapshot.exists() ? snapshot.val() : null;
-if (calendarView?.style.display === "block") renderWorkCalendar();
+renderWorkCalendar();
 });
 }
 
@@ -966,21 +959,11 @@ if (headerPerson) headerPerson.style.display = isMajster() ? "" : "none";
 
 function subscribeToAbsences(user) {
 const path = isMajster() ? "absences" : `absences/${user.uid}`;
-if (absencesSubscribedPath === path && absencesUnsubscribe) {
-renderAbsences();
-return;
-}
-if (absencesUnsubscribe) {
-absencesUnsubscribe();
-absencesUnsubscribe = null;
-}
+if (absencesSubscribedPath === path) return;
 absencesSubscribedPath = path;
-if (absencesTableBody) {
-absencesTableBody.innerHTML = '<tr><td colspan="7">Načítavam neprítomnosti...</td></tr>';
-}
-absencesUnsubscribe = onValue(ref(db, path), (snapshot) => {
+onValue(ref(db, path), (snapshot) => {
 latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
-if (absencesView?.style.display === "block") renderAbsences();
+renderAbsences();
 });
 }
 
@@ -1011,10 +994,16 @@ if (writes.length) await Promise.all(writes);
 function subscribeToData() {
 if (dataLoaded) return;
 dataLoaded = true;
+console.time("MT21B načítanie dát");
+let initialDataParts = 0;
+const markInitialPartLoaded = () => {
+initialDataParts += 1;
+if (initialDataParts === 4) console.timeEnd("MT21B načítanie dát");
+};
 
-ensureDefaultLinesExist().catch(() => {});
-
+let linesLoadedOnce = false;
 onValue(ref(db, "lines"), (snapshot) => {
+if (!linesLoadedOnce) { linesLoadedOnce = true; markInitialPartLoaded(); }
 const val = snapshot.exists() ? snapshot.val() : null;
 latestLinesList = parseLinesSnapshot(val);
 
@@ -1023,11 +1012,13 @@ if (linesCountEl) {
 linesCountEl.innerText = latestLinesList.length;
 }
 
-if (linesView?.style.display === "block") renderLinesBoard();
-if (usersView?.style.display === "block") renderUsersList(latestUsersData);
+renderLinesBoard();
+renderUsersList(latestUsersData);
 });
 
+let employeesLoadedOnce = false;
 onValue(ref(db, "employees"), (snapshot) => {
+if (!employeesLoadedOnce) { employeesLoadedOnce = true; markInitialPartLoaded(); }
 const val = snapshot.exists() ? snapshot.val() : null;
 latestEmployeesData = val;
 
@@ -1036,15 +1027,14 @@ if (countEl) {
 countEl.innerText = val ? Object.keys(val).length : 0;
 }
 
-if (employeesView?.style.display === "block") renderEmployeesTable(val);
+renderEmployeesTable(val);
 });
 
+let usersLoadedOnce = false;
 onValue(ref(db, "users"), (snapshot) => {
+if (!usersLoadedOnce) { usersLoadedOnce = true; markInitialPartLoaded(); }
 const val = snapshot.exists() ? snapshot.val() : null;
 latestUsersData = val;
-if (isMajster()) {
-syncUsersToEmployees(val, latestEmployeesData).catch((error) => console.error("Synchronizácia zamestnancov zlyhala:", error));
-}
 const count = val ? Object.keys(val).length : 0;
 
 const countEl = document.getElementById("userCount");
@@ -1067,15 +1057,17 @@ return;
 }
 }
 
-if (usersView?.style.display === "block") renderUsersList(val);
-if (linesView?.style.display === "block") renderLinesBoard();
-if (calendarView?.style.display === "block" && isMajster()) fillCalendarEmployeeSelect();
+renderUsersList(val);
+renderLinesBoard();
+fillCalendarEmployeeSelect();
 });
 
+let assignmentsLoadedOnce = false;
 onValue(ref(db, "lineAssignments"), (snapshot) => {
+if (!assignmentsLoadedOnce) { assignmentsLoadedOnce = true; markInitialPartLoaded(); }
 latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
-if (linesView?.style.display === "block") renderLinesBoard();
-if (usersView?.style.display === "block") renderUsersList(latestUsersData);
+renderLinesBoard();
+renderUsersList(latestUsersData);
 });
 }
 
@@ -1115,7 +1107,7 @@ subscribeToCalendar(selectedCalendarUid);
 } else if (sectionName === "absences") {
 detailTitle.innerText = "Neprítomnosti";
 absencesView.style.display = "block";
-subscribeToAbsences(auth.currentUser);
+renderAbsences();
 }
 }
 
@@ -1279,6 +1271,7 @@ renderWorkCalendar();
 if (calendarEmployeeSelect) {
 calendarEmployeeSelect.addEventListener("change", () => {
 selectedCalendarUid = calendarEmployeeSelect.value;
+calendarSubscribedPath = "";
 latestCalendarOverrides = null;
 subscribeToCalendar(selectedCalendarUid);
 });
@@ -1331,7 +1324,9 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
 await ensureUserRole(user);
 subscribeToData();
+subscribeToAbsences(user);
 selectedCalendarUid = user.uid;
+subscribeToCalendar(user.uid);
 } else {
 location.href = "index.html";
 }
