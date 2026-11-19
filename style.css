@@ -1,16 +1,36 @@
+*{
+    box-sizing: border-box;
+}
+
 body{
     margin:0;
     font-family:Arial,sans-serif;
     background:#f4f4f4;
+    position:relative;
+    min-height:100vh;
+}
+
+.bg-watermark{
+    position:fixed;
+    inset:0;
+    background-image:url("brose-logo-brose-fahrzeugteile-gmbh-co-k-11563170547fgficxf1fi.png");
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:min(60vw, 520px);
+    opacity:0.08;
+    pointer-events:none;
+    z-index:0;
 }
 
 nav{
-    background:#003366;
+    background:#cc0000;
     color:white;
     padding:15px 20px;
     display:flex;
     justify-content:space-between;
     align-items:center;
+    position:relative;
+    z-index:1;
 }
 
 .brand{
@@ -49,6 +69,8 @@ nav{
     background:white;
     padding:30px;
     border-radius:10px;
+    position:relative;
+    z-index:1;
 }
 
 input{
@@ -67,10 +89,12 @@ button{
     display:flex;
     gap:20px;
     padding:20px;
+    position:relative;
+    z-index:1;
 }
 
 .card{
-    background:white;
+    background:rgba(255, 255, 255, 0.92);
     padding:20px;
     border-radius:10px;
     width:200px;
