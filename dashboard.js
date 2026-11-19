@@ -36,21 +36,23 @@ onAuthStateChanged
 from
 "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-const LINES = [
-"Nepriradená",
-"Linka 1",
-"Linka 2",
-"Linka 3",
-"Linka 4",
-"Linka 5",
-"Linka 6",
-"Linka 7",
-"Linka 8"
+const DEFAULT_LINES = [
+{ key: "line_1", name: "Linka 1", order: 1 },
+{ key: "line_2", name: "Linka 2", order: 2 },
+{ key: "line_3", name: "Linka 3", order: 3 },
+{ key: "line_4", name: "Linka 4", order: 4 },
+{ key: "line_5", name: "Linka 5", order: 5 },
+{ key: "line_6", name: "Linka 6", order: 6 },
+{ key: "line_7", name: "Linka 7", order: 7 },
+{ key: "line_8", name: "Linka 8", order: 8 }
 ];
 
 let dataLoaded = false;
+let linesInitialized = false;
 let latestEmployeesData = null;
 let latestUsersData = null;
+let latestLinesList = [];
+let latestLineAssignments = {};
 let currentUserRole = "zamestnanec";
 
 const overviewSection = document.getElementById("overviewSection");
@@ -61,6 +63,7 @@ const usersCard = document.getElementById("usersCard");
 
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
+const linesView = document.getElementById("linesView");
 const groupsView = document.getElementById("groupsView");
 
 const addEmployeeForm = document.getElementById("addEmployeeForm");
@@ -71,6 +74,11 @@ const employeesTableBody = document.getElementById("employeesTableBody");
 const addUserForm = document.getElementById("addUserForm");
 const addUserStatus = document.getElementById("addUserStatus");
 const usersRoleList = document.getElementById("usersRoleList");
+
+const addLineForm = document.getElementById("addLineForm");
+const newLineNameInput = document.getElementById("newLineName");
+const linesRoleNotice = document.getElementById("linesRoleNotice");
+const linesContainer = document.getElementById("linesContainer");
 const roleBadge = document.getElementById("roleBadge");
 
 function normalizeShortcut(raw) {
@@ -106,6 +114,53 @@ detailSection.style.display = "none";
 overviewSection.style.display = "flex";
 }
 
+async function ensureDefaultLinesExist() {
+if (linesInitialized) return;
+linesInitialized = true;
+
+const linesRef = ref(db, "lines");
+const snap = await get(linesRef);
+
+if (!snap.exists()) {
+const initialObj = {};
+DEFAULT_LINES.forEach((item) => {
+initialObj[item.key] = {
+name: item.name,
+order: item.order
+};
+});
+await set(linesRef, initialObj);
+}
+}
+
+function parseLinesSnapshot(val) {
+if (!val) return [];
+return Object.entries(val)
+  .map(([key, data], idx) => ({
+    key,
+    name: data?.name || key,
+    order: typeof data?.order === "number" ? data.order : idx + 1
+  }))
+  .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "sk"));
+}
+
+function getUserAssignedLines(uid) {
+const assigned = [];
+latestLinesList.forEach((lineObj) => {
+const lineMembers = latestLineAssignments?.[lineObj.key];
+if (lineMembers && lineMembers[uid]) {
+assigned.push(lineObj);
+}
+});
+return assigned;
+}
+
+function getUserDisplayName(uid) {
+const u = latestUsersData?.[uid];
+if (!u) return uid;
+return u.name || u.loginId || u.email || uid;
+}
+
 function applyRoleUI() {
 if (roleBadge) {
 roleBadge.innerText = currentUserRole;
@@ -129,12 +184,21 @@ if (employeeRoleNotice) {
 employeeRoleNotice.style.display = isMajster() ? "none" : "block";
 }
 
+if (linesRoleNotice) {
+linesRoleNotice.style.display = isMajster() ? "none" : "block";
+}
+
+if (addLineForm) {
+addLineForm.style.display = isMajster() ? "flex" : "none";
+}
+
 if (actionColHeader) {
 actionColHeader.style.display = isMajster() ? "" : "none";
 }
 
 renderEmployeesTable(latestEmployeesData);
 renderUsersList(latestUsersData);
+renderLinesBoard();
 }
 
 async function ensureUserRole(user) {
@@ -151,7 +215,6 @@ await set(userRef, {
 email: user.email || "",
 loginId: fallbackShortcut,
 name: fallbackShortcut || "Používateľ",
-line: "Nepriradená",
 role: defaultRole
 });
 }
@@ -224,10 +287,13 @@ const li = document.createElement("li");
 const displayName = u.name || u.email || uid;
 const shortcutText = u.loginId || (u.email ? u.email.split("@")[0] : "");
 const roleText = normalizeRole(u.role);
-const currentLine = u.line || "Nepriradená";
+const assignedLines = getUserAssignedLines(uid);
+const lineSummary = assignedLines.length > 0
+  ? assignedLines.map((l) => l.name).join(", ")
+  : "Nepriradená";
 
 const labelSpan = document.createElement("span");
-labelSpan.innerText = `${displayName} [skratka: ${shortcutText}] — ${currentLine} (${roleText})`;
+labelSpan.innerText = `${displayName} [skratka: ${shortcutText}] — ${lineSummary} (${roleText})`;
 li.appendChild(labelSpan);
 
 const controlsWrap = document.createElement("div");
@@ -235,21 +301,6 @@ controlsWrap.style.display = "flex";
 controlsWrap.style.gap = "8px";
 controlsWrap.style.alignItems = "center";
 controlsWrap.style.flexWrap = "wrap";
-
-const lineSelect = document.createElement("select");
-lineSelect.className = "role-select";
-LINES.forEach((lineName) => {
-const opt = document.createElement("option");
-opt.value = lineName;
-opt.innerText = lineName;
-lineSelect.appendChild(opt);
-});
-lineSelect.value = LINES.includes(currentLine) ? currentLine : "Nepriradená";
-lineSelect.addEventListener("change", async () => {
-await update(ref(db, `users/${uid}`), {
-line: lineSelect.value
-});
-});
 
 const select = document.createElement("select");
 select.className = "role-select";
@@ -271,7 +322,7 @@ role: select.value
 });
 });
 
-controlsWrap.append(lineSelect, select);
+controlsWrap.appendChild(select);
 
 if (uid !== currentUid) {
 const deleteUserBtn = document.createElement("button");
@@ -280,6 +331,11 @@ deleteUserBtn.className = "delete-btn";
 deleteUserBtn.innerText = "Zmazať";
 deleteUserBtn.addEventListener("click", async () => {
 await remove(ref(db, `users/${uid}`));
+for (const lineObj of latestLinesList) {
+if (latestLineAssignments?.[lineObj.key]?.[uid]) {
+await remove(ref(db, `lineAssignments/${lineObj.key}/${uid}`));
+}
+}
 showAddUserMessage(
 `Záznam používateľa ${displayName} bol zmazaný z databázy. Ak ho chceš úplne zablokovať, zmaž ho aj v Authentication vo Firebase.`,
 false
@@ -295,9 +351,211 @@ list.appendChild(li);
 usersRoleList.appendChild(list);
 }
 
+function renderLinesBoard() {
+if (!linesContainer) return;
+
+linesContainer.innerHTML = "";
+
+if (latestLinesList.length === 0) {
+const emptyMsg = document.createElement("p");
+emptyMsg.innerText = "Zatiaľ nie sú vytvorené žiadne linky.";
+linesContainer.appendChild(emptyMsg);
+return;
+}
+
+const userEntries = latestUsersData
+  ? Object.entries(latestUsersData).sort((a, b) => {
+      const nameA = (a[1].name || a[1].loginId || "").toLowerCase();
+      const nameB = (b[1].name || b[1].loginId || "").toLowerCase();
+      return nameA.localeCompare(nameB, "sk");
+    })
+  : [];
+
+latestLinesList.forEach((lineObj) => {
+const card = document.createElement("div");
+card.className = "line-box";
+
+const header = document.createElement("div");
+header.className = "line-box-header";
+
+const title = document.createElement("h3");
+title.innerText = lineObj.name;
+
+const assignedMap = latestLineAssignments?.[lineObj.key] || {};
+const assignedUids = Object.keys(assignedMap).filter((uid) => assignedMap[uid]);
+
+const headerRight = document.createElement("div");
+headerRight.style.display = "flex";
+headerRight.style.gap = "6px";
+headerRight.style.alignItems = "center";
+
+const badge = document.createElement("span");
+badge.className = "line-count-badge";
+badge.innerText = `${assignedUids.length} os.`;
+headerRight.appendChild(badge);
+
+if (isMajster()) {
+const renameBtn = document.createElement("button");
+renameBtn.type = "button";
+renameBtn.className = "secondary-btn";
+renameBtn.style.padding = "3px 8px";
+renameBtn.style.fontSize = "12px";
+renameBtn.innerText = "Premenovať";
+renameBtn.addEventListener("click", async () => {
+const nextName = window.prompt("Zadaj nový názov linky:", lineObj.name);
+if (!nextName) return;
+const trimmed = nextName.trim();
+if (!trimmed || trimmed === lineObj.name) return;
+await update(ref(db, `lines/${lineObj.key}`), {
+name: trimmed
+});
+});
+
+const deleteLineBtn = document.createElement("button");
+deleteLineBtn.type = "button";
+deleteLineBtn.className = "line-remove-btn";
+deleteLineBtn.title = "Zmazať linku";
+deleteLineBtn.innerText = "Zmazať";
+deleteLineBtn.addEventListener("click", async () => {
+const confirmed = window.confirm(
+`Naozaj chceš zmazať „${lineObj.name}“? Odstránia sa aj priradenia ľudí na tejto linke.`
+);
+if (!confirmed) return;
+await remove(ref(db, `lines/${lineObj.key}`));
+await remove(ref(db, `lineAssignments/${lineObj.key}`));
+});
+
+headerRight.append(renameBtn, deleteLineBtn);
+}
+
+header.append(title, headerRight);
+card.appendChild(header);
+
+const membersList = document.createElement("ul");
+membersList.className = "line-members-list";
+
+if (assignedUids.length === 0) {
+const emptyLi = document.createElement("li");
+emptyLi.className = "line-empty-item";
+emptyLi.innerText = "Zatiaľ nikto priradený";
+membersList.appendChild(emptyLi);
+} else {
+assignedUids.forEach((uid) => {
+const memberLi = document.createElement("li");
+memberLi.className = "line-member-item";
+
+const nameSpan = document.createElement("span");
+const otherLines = getUserAssignedLines(uid).filter((l) => l.key !== lineObj.key);
+nameSpan.innerText = otherLines.length > 0
+  ? `${getUserDisplayName(uid)} (aj: ${otherLines.map((l) => l.name).join(", ")})`
+  : getUserDisplayName(uid);
+
+memberLi.appendChild(nameSpan);
+
+if (isMajster()) {
+const removeBtn = document.createElement("button");
+removeBtn.type = "button";
+removeBtn.className = "line-remove-btn";
+removeBtn.title = "Odobrať z linky";
+removeBtn.innerText = "✕";
+removeBtn.addEventListener("click", async () => {
+await remove(ref(db, `lineAssignments/${lineObj.key}/${uid}`));
+});
+memberLi.appendChild(removeBtn);
+}
+
+membersList.appendChild(memberLi);
+});
+}
+
+card.appendChild(membersList);
+
+if (isMajster()) {
+const assignRow = document.createElement("div");
+assignRow.className = "line-assign-row";
+
+const userSelect = document.createElement("select");
+userSelect.className = "role-select line-user-select";
+
+const placeholderOpt = document.createElement("option");
+placeholderOpt.value = "";
+placeholderOpt.innerText = "-- Vyber človeka --";
+userSelect.appendChild(placeholderOpt);
+
+userEntries.forEach(([uid, u]) => {
+const opt = document.createElement("option");
+opt.value = uid;
+const displayName = u.name || u.loginId || u.email || uid;
+const existingLines = getUserAssignedLines(uid);
+const alreadyHere = Boolean(assignedMap[uid]);
+
+if (alreadyHere) {
+opt.innerText = `${displayName} (už na tejto linke)`;
+opt.disabled = true;
+} else if (existingLines.length > 0) {
+opt.innerText = `${displayName} [${existingLines.map((l) => l.name).join(", ")}]`;
+} else {
+opt.innerText = displayName;
+}
+
+userSelect.appendChild(opt);
+});
+
+const addBtn = document.createElement("button");
+addBtn.type = "button";
+addBtn.className = "primary-btn line-add-btn";
+addBtn.innerText = "Pridať";
+
+addBtn.addEventListener("click", async () => {
+const selectedUid = userSelect.value;
+if (!selectedUid) return;
+
+if (assignedMap[selectedUid]) return;
+
+const existingOtherLines = getUserAssignedLines(selectedUid).filter(
+(l) => l.key !== lineObj.key
+);
+
+if (existingOtherLines.length > 0) {
+const personName = getUserDisplayName(selectedUid);
+const linesText = existingOtherLines.map((l) => l.name).join(", ");
+const confirmed = window.confirm(
+`Upozornenie: Používateľ „${personName}“ je už priradený na: ${linesText}.\n\nNaozaj ho chceš pridať súčasne aj na ${lineObj.name}?`
+);
+if (!confirmed) {
+return;
+}
+}
+
+await set(ref(db, `lineAssignments/${lineObj.key}/${selectedUid}`), true);
+});
+
+assignRow.append(userSelect, addBtn);
+card.appendChild(assignRow);
+}
+
+linesContainer.appendChild(card);
+});
+}
+
 function subscribeToData() {
 if (dataLoaded) return;
 dataLoaded = true;
+
+ensureDefaultLinesExist().catch(() => {});
+
+onValue(ref(db, "lines"), (snapshot) => {
+const val = snapshot.exists() ? snapshot.val() : null;
+latestLinesList = parseLinesSnapshot(val);
+
+const linesCountEl = document.getElementById("linesCount");
+if (linesCountEl) {
+linesCountEl.innerText = latestLinesList.length;
+}
+
+renderLinesBoard();
+renderUsersList(latestUsersData);
+});
 
 onValue(ref(db, "employees"), (snapshot) => {
 const val = snapshot.exists() ? snapshot.val() : null;
@@ -337,6 +595,13 @@ return;
 }
 
 renderUsersList(val);
+renderLinesBoard();
+});
+
+onValue(ref(db, "lineAssignments"), (snapshot) => {
+latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
+renderLinesBoard();
+renderUsersList(latestUsersData);
 });
 }
 
@@ -350,6 +615,7 @@ detailSection.style.display = "block";
 
 employeesView.style.display = "none";
 usersView.style.display = "none";
+linesView.style.display = "none";
 groupsView.style.display = "none";
 
 if (sectionName === "employees") {
@@ -360,6 +626,10 @@ renderEmployeesTable(latestEmployeesData);
 detailTitle.innerText = "Používatelia";
 usersView.style.display = "block";
 renderUsersList(latestUsersData);
+} else if (sectionName === "lines") {
+detailTitle.innerText = "Linky";
+linesView.style.display = "block";
+renderLinesBoard();
 } else if (sectionName === "groups") {
 detailTitle.innerText = "Skupiny";
 groupsView.style.display = "block";
@@ -375,6 +645,30 @@ openSection(target);
 
 if (backToOverviewBtn) {
 backToOverviewBtn.addEventListener("click", backToOverview);
+}
+
+if (addLineForm) {
+addLineForm.addEventListener("submit", async (e) => {
+e.preventDefault();
+
+if (!isMajster()) return;
+
+const rawName = newLineNameInput?.value.trim() || "";
+if (!rawName) return;
+
+const nextOrder = latestLinesList.length > 0
+  ? Math.max(...latestLinesList.map((l) => l.order)) + 1
+  : 1;
+
+const newLineRef = push(ref(db, "lines"));
+await set(newLineRef, {
+name: rawName,
+order: nextOrder
+});
+
+addLineForm.reset();
+newLineNameInput.focus();
+});
 }
 
 if (addEmployeeForm) {
@@ -451,7 +745,6 @@ await set(ref(db, `users/${newUid}`), {
 email: authEmail,
 loginId: cleanShortcut,
 name: fullNameWithDiacritics,
-line: "Nepriradená",
 role: "zamestnanec"
 });
 
