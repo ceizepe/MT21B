@@ -48,6 +48,12 @@ const DEFAULT_LINES = [
 ];
 
 let dataLoaded = false;
+let employeesSubscribed = false;
+let usersSubscribed = false;
+let linesSubscribed = false;
+let assignmentsSubscribed = false;
+let absencesUnsubscribe = null;
+let calendarUnsubscribe = null;
 let linesInitialized = false;
 let latestEmployeesData = null;
 let latestUsersData = null;
@@ -232,9 +238,9 @@ if (actionColHeader) {
 actionColHeader.style.display = isMajster() ? "" : "none";
 }
 
-renderEmployeesTable(latestEmployeesData);
-renderUsersList(latestUsersData);
-renderLinesBoard();
+if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
+if (usersView?.style.display === "block") renderUsersList(latestUsersData);
+if (linesView?.style.display === "block") renderLinesBoard();
 }
 
 async function ensureUserRole(user) {
@@ -743,14 +749,17 @@ calendarEmployeeSelect.value = selectedCalendarUid;
 function subscribeToCalendar(uid) {
 if (!uid) return;
 const path = `workCalendars/${uid}`;
-if (calendarSubscribedPath === path) {
+if (calendarSubscribedPath === path && calendarUnsubscribe) {
 renderWorkCalendar();
 return;
 }
+if (calendarUnsubscribe) calendarUnsubscribe();
 calendarSubscribedPath = path;
-onValue(ref(db, path), (snapshot) => {
+latestCalendarOverrides = null;
+if (workCalendar) workCalendar.innerHTML = "<p>Načítavam kalendár...</p>";
+calendarUnsubscribe = onValue(ref(db, path), (snapshot) => {
 latestCalendarOverrides = snapshot.exists() ? snapshot.val() : null;
-renderWorkCalendar();
+if (calendarView?.style.display === "block") renderWorkCalendar();
 });
 }
 
@@ -959,11 +968,16 @@ if (headerPerson) headerPerson.style.display = isMajster() ? "" : "none";
 
 function subscribeToAbsences(user) {
 const path = isMajster() ? "absences" : `absences/${user.uid}`;
-if (absencesSubscribedPath === path) return;
-absencesSubscribedPath = path;
-onValue(ref(db, path), (snapshot) => {
-latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
+if (absencesSubscribedPath === path && absencesUnsubscribe) {
 renderAbsences();
+return;
+}
+if (absencesUnsubscribe) absencesUnsubscribe();
+absencesSubscribedPath = path;
+if (absencesTableBody) absencesTableBody.innerHTML = '<tr><td colspan="7">Načítavam neprítomnosti...</td></tr>';
+absencesUnsubscribe = onValue(ref(db, path), (snapshot) => {
+latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
+if (absencesView?.style.display === "block") renderAbsences();
 });
 }
 
@@ -991,84 +1005,56 @@ userUid: uid
 if (writes.length) await Promise.all(writes);
 }
 
+function subscribeEmployees() {
+if (employeesSubscribed) return;
+employeesSubscribed = true;
+onValue(ref(db, "employees"), (snapshot) => {
+latestEmployeesData = snapshot.exists() ? snapshot.val() : null;
+const countEl = document.getElementById("employeeCount");
+if (countEl) countEl.innerText = latestEmployeesData ? Object.keys(latestEmployeesData).length : 0;
+if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
+});
+}
+
+function subscribeUsers() {
+if (usersSubscribed) return;
+usersSubscribed = true;
+onValue(ref(db, "users"), (snapshot) => {
+latestUsersData = snapshot.exists() ? snapshot.val() : null;
+const count = latestUsersData ? Object.keys(latestUsersData).length : 0;
+const countEl = document.getElementById("userCount");
+if (countEl) countEl.innerText = count;
+const detailCountEl = document.getElementById("usersDetailCount");
+if (detailCountEl) detailCountEl.innerText = count;
+if (usersView?.style.display === "block") renderUsersList(latestUsersData);
+if (linesView?.style.display === "block") renderLinesBoard();
+if (calendarView?.style.display === "block" && isMajster()) fillCalendarEmployeeSelect();
+});
+}
+
+function subscribeLines() {
+if (!linesSubscribed) {
+linesSubscribed = true;
+onValue(ref(db, "lines"), (snapshot) => {
+latestLinesList = parseLinesSnapshot(snapshot.exists() ? snapshot.val() : null);
+const linesCountEl = document.getElementById("linesCount");
+if (linesCountEl) linesCountEl.innerText = latestLinesList.length;
+if (linesView?.style.display === "block") renderLinesBoard();
+});
+}
+if (!assignmentsSubscribed) {
+assignmentsSubscribed = true;
+onValue(ref(db, "lineAssignments"), (snapshot) => {
+latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
+if (linesView?.style.display === "block") renderLinesBoard();
+});
+}
+}
+
 function subscribeToData() {
 if (dataLoaded) return;
 dataLoaded = true;
-console.time("MT21B načítanie dát");
-let initialDataParts = 0;
-const markInitialPartLoaded = () => {
-initialDataParts += 1;
-if (initialDataParts === 4) console.timeEnd("MT21B načítanie dát");
-};
-
-let linesLoadedOnce = false;
-onValue(ref(db, "lines"), (snapshot) => {
-if (!linesLoadedOnce) { linesLoadedOnce = true; markInitialPartLoaded(); }
-const val = snapshot.exists() ? snapshot.val() : null;
-latestLinesList = parseLinesSnapshot(val);
-
-const linesCountEl = document.getElementById("linesCount");
-if (linesCountEl) {
-linesCountEl.innerText = latestLinesList.length;
-}
-
-renderLinesBoard();
-renderUsersList(latestUsersData);
-});
-
-let employeesLoadedOnce = false;
-onValue(ref(db, "employees"), (snapshot) => {
-if (!employeesLoadedOnce) { employeesLoadedOnce = true; markInitialPartLoaded(); }
-const val = snapshot.exists() ? snapshot.val() : null;
-latestEmployeesData = val;
-
-const countEl = document.getElementById("employeeCount");
-if (countEl) {
-countEl.innerText = val ? Object.keys(val).length : 0;
-}
-
-renderEmployeesTable(val);
-});
-
-let usersLoadedOnce = false;
-onValue(ref(db, "users"), (snapshot) => {
-if (!usersLoadedOnce) { usersLoadedOnce = true; markInitialPartLoaded(); }
-const val = snapshot.exists() ? snapshot.val() : null;
-latestUsersData = val;
-const count = val ? Object.keys(val).length : 0;
-
-const countEl = document.getElementById("userCount");
-if (countEl) {
-countEl.innerText = count;
-}
-
-const detailCountEl = document.getElementById("usersDetailCount");
-if (detailCountEl) {
-detailCountEl.innerText = count;
-}
-
-const currentAuthUser = auth.currentUser;
-if (currentAuthUser && val && val[currentAuthUser.uid] && val[currentAuthUser.uid].role) {
-const updatedRole = normalizeRole(val[currentAuthUser.uid].role);
-if (updatedRole !== currentUserRole) {
-currentUserRole = updatedRole;
-applyRoleUI();
-return;
-}
-}
-
-renderUsersList(val);
-renderLinesBoard();
-fillCalendarEmployeeSelect();
-});
-
-let assignmentsLoadedOnce = false;
-onValue(ref(db, "lineAssignments"), (snapshot) => {
-if (!assignmentsLoadedOnce) { assignmentsLoadedOnce = true; markInitialPartLoaded(); }
-latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
-renderLinesBoard();
-renderUsersList(latestUsersData);
-});
+// Pri štarte sa nenačítavajú celé zoznamy. Každá sekcia sa načíta až po otvorení.
 }
 
 function openSection(sectionName) {
@@ -1088,26 +1074,34 @@ calendarView.style.display = "none";
 if (sectionName === "employees") {
 detailTitle.innerText = "Zamestnanci";
 employeesView.style.display = "block";
-renderEmployeesTable(latestEmployeesData);
+subscribeEmployees();
+if (latestEmployeesData) renderEmployeesTable(latestEmployeesData);
 } else if (sectionName === "users") {
 detailTitle.innerText = "Používatelia";
 usersView.style.display = "block";
-renderUsersList(latestUsersData);
+subscribeUsers();
+subscribeLines();
+if (latestUsersData) renderUsersList(latestUsersData);
 } else if (sectionName === "lines") {
 detailTitle.innerText = "Linky";
 linesView.style.display = "block";
+subscribeUsers();
+subscribeLines();
 renderLinesBoard();
 } else if (sectionName === "calendar") {
 detailTitle.innerText = isMajster() ? "Pracovné kalendáre" : "Môj pracovný kalendár";
 calendarView.style.display = "block";
 if (!calendarMonthInput.value) calendarMonthInput.value = dateKeyLocal(new Date()).slice(0, 7);
-if (isMajster()) fillCalendarEmployeeSelect();
+if (isMajster()) {
+subscribeUsers();
+fillCalendarEmployeeSelect();
+}
 selectedCalendarUid = isMajster() ? calendarEmployeeSelect.value : auth.currentUser.uid;
 subscribeToCalendar(selectedCalendarUid);
 } else if (sectionName === "absences") {
 detailTitle.innerText = "Neprítomnosti";
 absencesView.style.display = "block";
-renderAbsences();
+subscribeToAbsences(auth.currentUser);
 }
 }
 
@@ -1271,7 +1265,6 @@ renderWorkCalendar();
 if (calendarEmployeeSelect) {
 calendarEmployeeSelect.addEventListener("change", () => {
 selectedCalendarUid = calendarEmployeeSelect.value;
-calendarSubscribedPath = "";
 latestCalendarOverrides = null;
 subscribeToCalendar(selectedCalendarUid);
 });
@@ -1324,9 +1317,7 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
 await ensureUserRole(user);
 subscribeToData();
-subscribeToAbsences(user);
 selectedCalendarUid = user.uid;
-subscribeToCalendar(user.uid);
 } else {
 location.href = "index.html";
 }
