@@ -1,43 +1,60 @@
 <!DOCTYPE html>
 <html lang="sk">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>MT21B Login</title>
+<title>
+MT21B Workforce Manager – Prihlásenie
+</title>
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet"
+href="style.css">
+
 </head>
 
 <body>
 
+<div class="bg-watermark" aria-hidden="true"></div>
+
 <div class="login-container">
 
-<h1>MT21B</h1>
+<div class="auth-header">
+<img src="brose-logo-brose-fahrzeugteile-gmbh-co-k-11563170547fgficxf1fi.png" alt="Brose logo" class="auth-logo">
+<h2 id="authTitle">Prihlásenie</h2>
+</div>
 
-<form id="loginForm">
+<div class="auth-tabs">
+<button type="button" id="tabLogin" class="auth-tab active">Prihlásiť sa</button>
+<button type="button" id="tabRegister" class="auth-tab">Registrovať</button>
+</div>
 
-<input
-type="text"
-id="username"
-placeholder="Používateľ">
+<form id="authForm">
 
-<input
-type="password"
-id="password"
-placeholder="Heslo">
+<div id="registerFields" style="display: none;">
+<input type="text" id="regName" placeholder="Meno a priezvisko (nepovinné)">
+</div>
 
-<button type="submit">
-Prihlásiť
-</button>
+<input type="email" id="authEmail" placeholder="E-mail" required>
+<input type="password" id="authPassword" placeholder="Heslo (min. 6 znakov)" required>
+
+<div id="confirmPasswordWrap" style="display: none;">
+<input type="password" id="regPasswordConfirm" placeholder="Potvrď heslo">
+</div>
+
+<button type="submit" id="authSubmitBtn" class="primary-btn">Prihlásiť sa</button>
 
 </form>
 
-<p id="message"></p>
+<p id="authMessage" class="auth-message" style="display: none;"></p>
 
 </div>
 
-<script type="module" src="auth.js"></script>
+<script type="module"
+src="login.js">
+</script>
 
 </body>
+
 </html>
