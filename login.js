@@ -34,6 +34,23 @@ const confirmPasswordInput = document.getElementById("regPasswordConfirm");
 let mode = "login";
 let isSubmitting = false;
 
+function normalizeShortcut(raw) {
+return raw
+  .trim()
+  .toLowerCase()
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9._-]/g, "");
+}
+
+function toAuthEmail(inputValue) {
+const trimmed = inputValue.trim().toLowerCase();
+if (!trimmed) return "";
+if (trimmed.includes("@")) return trimmed;
+const cleanId = normalizeShortcut(trimmed);
+return cleanId ? `${cleanId}@mt21b.local` : "";
+}
+
 function showMessage(text, isError = true) {
 if (!authMessage) return;
 authMessage.style.display = "block";
@@ -61,15 +78,18 @@ authSubmitBtn.innerText = isRegister ? "Vytvoriť účet" : "Prihlásiť sa";
 registerFields.style.display = isRegister ? "block" : "none";
 confirmPasswordWrap.style.display = isRegister ? "block" : "none";
 confirmPasswordInput.required = isRegister;
+emailInput.placeholder = isRegister
+  ? "Prihlasovacia skratka (napr. jnovak) alebo e-mail"
+  : "Prihlasovacia skratka (napr. jnovak) alebo e-mail";
 }
 
 function formatFirebaseError(err) {
 const code = err?.code || "";
-if (code === "auth/email-already-in-use") return "Tento e-mail je už zaregistrovaný.";
-if (code === "auth/invalid-email") return "Neplatný formát e-mailovej adresy.";
+if (code === "auth/email-already-in-use") return "Táto skratka / e-mail už účet má.";
+if (code === "auth/invalid-email") return "Neplatná prihlasovacia skratka alebo e-mail.";
 if (code === "auth/weak-password") return "Heslo je príliš slabé (musí mať aspoň 6 znakov).";
 if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
-return "Nesprávny e-mail alebo heslo.";
+return "Nesprávna prihlasovacia skratka alebo heslo.";
 }
 if (code === "auth/network-request-failed") return "Chyba siete. Skontroluj pripojenie na internet.";
 return err?.message || "Nastala neočakávaná chyba.";
@@ -82,10 +102,15 @@ authForm.addEventListener("submit", async (e) => {
 e.preventDefault();
 clearMessage();
 
-const email = emailInput.value.trim();
+const rawLogin = emailInput.value.trim();
+const email = toAuthEmail(rawLogin);
 const password = passwordInput.value;
+const shortcut = rawLogin.includes("@") ? rawLogin.split("@")[0] : normalizeShortcut(rawLogin);
 
-if (!email || !password) return;
+if (!email || !password) {
+showMessage("Zadaj platnú skratku a heslo.");
+return;
+}
 
 if (mode === "register") {
 const confirmPassword = confirmPasswordInput.value;
@@ -107,8 +132,10 @@ const snap = await get(userRef);
 if (!snap.exists()) {
 const defaultRole = cred.user.email === "admin@mt21b.local" ? "majster" : "zamestnanec";
 await set(userRef, {
-email: cred.user.email || "",
-name: cred.user.email ? cred.user.email.split("@")[0] : "Používateľ",
+email: cred.user.email || email,
+loginId: shortcut || (cred.user.email ? cred.user.email.split("@")[0] : ""),
+name: shortcut || (cred.user.email ? cred.user.email.split("@")[0] : "Používateľ"),
+line: "Nepriradená",
 role: defaultRole
 });
 }
@@ -117,12 +144,14 @@ location.href = "dashboard.html";
 } else {
 const cred = await createUserWithEmailAndPassword(auth, email, password);
 const customName = regNameInput.value.trim();
-const fallbackName = email.split("@")[0] || "Používateľ";
+const fallbackName = shortcut || email.split("@")[0] || "Používateľ";
 const defaultRole = cred.user.email === "admin@mt21b.local" ? "majster" : "zamestnanec";
 
 await set(ref(db, `users/${cred.user.uid}`), {
 email: cred.user.email || email,
+loginId: shortcut,
 name: customName || fallbackName,
+line: "Nepriradená",
 role: defaultRole
 });
 
