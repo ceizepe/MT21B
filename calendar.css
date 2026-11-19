@@ -14,12 +14,12 @@
 .calendar-day-number { font-size:13px; font-weight:800; }
 .calendar-shift-label { font-size:14px; font-weight:800; }
 .calendar-day-note { font-size:11px; line-height:1.25; color:#4b5563; }
-.shift-ranna { background:#dff3e4; border-color:#8bc99a; }
-.shift-poobedna { background:#fff4bf; border-color:#e3c75a; }
-.shift-nocna { background:#ffe0bf; border-color:#e6a75f; }
-.shift-volno { background:#f0f2f5; border-color:#cbd1d9; }
+.shift-ranna { background:#b9e6c4; border-color:#58a96c; }
+.shift-poobedna { background:#ffe783; border-color:#d5ad20; }
+.shift-nocna { background:#ffc98f; border-color:#d8842c; }
+.shift-volno { background:#e2e5e9; border-color:#aeb5bf; }
 @media (max-width:850px) { .work-calendar { grid-template-columns:repeat(7,minmax(88px,1fr)); } .calendar-day { min-height:92px; } }
 
-.absence-dovolenka { background:#dcecff; border-color:#75a9e6; }
-.absence-red { background:#ffdede; border-color:#e88989; }
-.absence-nahradne-volno { background:#d9dde3; border-color:#9ea6b2; }
+.absence-dovolenka { background:#acd0ff; border-color:#4d8ed7; }
+.absence-red { background:#ffb3b3; border-color:#d95c5c; }
+.absence-nahradne-volno { background:#bfc5cd; border-color:#858e9a; }
