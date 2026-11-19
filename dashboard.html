@@ -100,14 +100,15 @@ Prihlásený si s rolou <strong>zamestnanec</strong> – máš iba právo na pre
 <p>Zoznam používateľov (aktuálne v databáze: <strong id="usersDetailCount">0</strong>).</p>
 
 <form id="addUserForm" class="employee-form">
-<input type="text" id="newUserName" placeholder="Meno (nepovinné)">
-<input type="email" id="newUserEmail" placeholder="E-mail" required>
+<input type="text" id="newUserName" placeholder="Meno a priezvisko (napr. Ján Novák)" required>
+<input type="text" id="newUserShortcut" placeholder="Prihlasovacia skratka (napr. jnovak)" required>
 <input type="password" id="newUserPassword" placeholder="Heslo (min. 6 znakov)" required>
 <button type="submit" class="primary-btn">Pridať používateľa</button>
 </form>
 
 <p id="addUserStatus" class="auth-message" style="display: none;"></p>
 
+<h3>Zoznam na priradenie na linky</h3>
 <div id="usersRoleList"></div>
 </div>
 
