@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="sk"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MT21B – Denné riadenie</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="daily.css"></head>
+<body><div class="bg-watermark" aria-hidden="true"></div>
+<nav class="topbar"><div class="brand"><img src="brose-logo-brose-fahrzeugteile-gmbh-co-k-11563170547fgficxf1fi.png" class="brand-logo" alt="Brose logo"><h2>Denné riadenie</h2></div><div class="user-bar"><span id="dailyUser"></span><button id="backBtn">Späť</button></div></nav>
+<main class="daily-page">
+<section class="daily-toolbar"><label>Dátum<input id="workDate" type="date"></label><button id="copyPreviousBtn" class="secondary-btn">Skopírovať predchádzajúci deň</button><button id="clearDayBtn" class="delete-btn">Vyčistiť deň</button><button id="exportBtn" class="secondary-btn">Export CSV</button></section>
+<section class="summary-grid"><article><strong id="assignedCount">0</strong><span>priradených</span></article><article><strong id="unassignedCount">0</strong><span>nepriradených</span></article><article><strong id="absenceCount">0</strong><span>neprítomných</span></article><article><strong id="confirmedCount">0</strong><span>potvrdených</span></article></section>
+<section class="daily-panel"><h2>Denné rozdelenie</h2><div class="filters"><input id="peopleSearch" type="search" placeholder="Hľadať meno alebo skratku"><select id="lineFilter"><option value="">Všetky linky</option></select></div><div id="assignmentBoard" class="assignment-board"></div></section>
+<section class="daily-panel"><h2>Oznamy</h2><form id="announcementForm" class="announcement-form"><select id="noticeTarget"><option value="all">Všetci</option><option value="line">Konkrétna linka</option><option value="person">Konkrétny človek</option></select><select id="noticeTargetValue"></select><textarea id="noticeText" required placeholder="Text dnešného oznamu"></textarea><button class="primary-btn">Pridať oznam</button></form><div id="announcementList"></div></section>
+<section class="daily-panel"><h2>História priradení</h2><div class="filters"><input id="historyFrom" type="date"><input id="historyTo" type="date"><button id="loadHistoryBtn" class="secondary-btn">Načítať históriu</button></div><div id="historyTable" class="table-wrap"></div></section>
+<section class="daily-panel"><h2>Mesačný prehľad</h2><div class="filters"><input id="summaryMonth" type="month"><button id="loadSummaryBtn" class="secondary-btn">Načítať prehľad</button></div><div id="monthlySummary"></div></section>
+<section class="daily-panel"><h2>Archív žiadostí</h2><p>Schválené alebo zamietnuté žiadosti môžeš presunúť do archívu bez trvalého zmazania.</p><div id="archiveList"></div></section>
+</main><script type="module" src="daily.js"></script></body></html>

@@ -413,3 +413,5 @@ body.employee-dashboard #employeeWelcomeCard.employee-welcome-card {
     margin-top: 120px !important;
   }
 }
+
+.employee-announcement-box{margin:0 0 14px;padding:14px;border:1px solid #e2c35b;border-radius:8px;background:rgba(255,245,199,.86)}.employee-announcement-box h4{margin:0 0 6px}.employee-announcement-box p{white-space:pre-wrap}.employee-announcement-box .primary-btn{margin-top:8px}

@@ -10,7 +10,7 @@ MT21B Dashboard
 </title>
 
 <link rel="stylesheet"
-href="style.css?v=20261119-2036">
+href="style.css?v=20261119-2105">
 
 <link rel="stylesheet" href="lines-layout.css">
 
@@ -52,6 +52,11 @@ Odhlásiť
 
 
 
+<div id="dailyManagementCard" class="card clickable-card" data-section="daily-management" style="display:none;">
+<h3>Denné riadenie</h3>
+<p>Rozdelenie, oznamy a história</p>
+</div>
+
 <div id="usersCard" class="card clickable-card" data-section="users" style="display: none;">
 <h3>Používatelia</h3>
 <p id="userCount">0</p>
@@ -70,6 +75,11 @@ Odhlásiť
 <div id="employeeWelcomeCard" class="card employee-welcome-card" style="display: none;">
 <h3 id="employeeWelcomeTitle">Ahoj</h3>
 <p id="employeeAssignmentText">Načítavam dnešné priradenie...</p>
+<div id="employeeAnnouncementBox" class="employee-announcement-box" style="display:none;">
+<h4>Dnešný oznam</h4>
+<p id="employeeAnnouncementText"></p>
+<button id="confirmAssignmentBtn" type="button" class="primary-btn">Potvrdzujem prečítanie</button>
+</div>
 <div id="employeeProductionText" class="employee-production-text"></div>
 </div>
 

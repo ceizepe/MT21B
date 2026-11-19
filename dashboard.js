@@ -63,6 +63,12 @@ const usersCard = document.getElementById("usersCard");
 const employeesCard = document.getElementById("employeesCard");
 const linesCard = document.getElementById("linesCard");
 const calendarCard = document.getElementById("calendarCard");
+const dailyManagementCard = document.getElementById("dailyManagementCard");
+const employeeAnnouncementBox = document.getElementById("employeeAnnouncementBox");
+const employeeAnnouncementText = document.getElementById("employeeAnnouncementText");
+const confirmAssignmentBtn = document.getElementById("confirmAssignmentBtn");
+let latestDailyAssignment = null;
+let latestDailyAnnouncements = null;
 const employeeWelcomeCard = document.getElementById("employeeWelcomeCard");
 const employeeWelcomeTitle = document.getElementById("employeeWelcomeTitle");
 const employeeAssignmentText = document.getElementById("employeeAssignmentText");
@@ -181,6 +187,42 @@ if (!u) return uid;
 return u.name || u.loginId || u.email || uid;
 }
 
+function todayKey() {
+const now = new Date();
+return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function renderEmployeeAnnouncement() {
+if (!employeeAnnouncementBox || isMajster()) return;
+const uid = auth.currentUser?.uid;
+const assignment = latestDailyAssignment;
+const notices = latestDailyAnnouncements ? Object.values(latestDailyAnnouncements) : [];
+const lineKey = assignment?.lineKey || "";
+const relevant = notices.filter((notice) => notice.active !== false && (
+notice.targetType === "all" ||
+(notice.targetType === "person" && notice.targetValue === uid) ||
+(notice.targetType === "line" && notice.targetValue === lineKey)
+));
+const text = relevant.map((notice) => notice.text).filter(Boolean).join("\n\n");
+if (!text) {
+employeeAnnouncementBox.style.display = "none";
+return;
+}
+employeeAnnouncementBox.style.display = "block";
+employeeAnnouncementText.innerText = text;
+}
+function subscribeEmployeeDailyData(user) {
+if (!user || isMajster()) return;
+const date = todayKey();
+onValue(ref(db, `dailyAssignments/${date}/${user.uid}`), (snapshot) => {
+latestDailyAssignment = snapshot.exists() ? snapshot.val() : null;
+renderEmployeeWelcome();
+renderEmployeeAnnouncement();
+});
+onValue(ref(db, `dailyAnnouncements/${date}`), (snapshot) => {
+latestDailyAnnouncements = snapshot.exists() ? snapshot.val() : null;
+renderEmployeeAnnouncement();
+});
+}
 function renderEmployeeWelcome() {
 if (!employeeWelcomeCard || isMajster()) return;
 const uid = auth.currentUser?.uid;
@@ -192,7 +234,14 @@ if (employeeWelcomeTitle) {
 employeeWelcomeTitle.innerText = firstName ? `Ahoj ${firstName}` : "Ahoj";
 }
 
-const assignedLines = latestLinesList.filter((lineObj) => Boolean(latestLineAssignments?.[lineObj.key]?.[uid]));
+const assignedLines = latestDailyAssignment
+  ? [{
+      key: latestDailyAssignment.lineKey || "daily",
+      name: latestDailyAssignment.lineName || "Nepriradená",
+      product1: latestDailyAssignment.product1 || "",
+      product2: latestDailyAssignment.product2 || ""
+    }]
+  : latestLinesList.filter((lineObj) => Boolean(latestLineAssignments?.[lineObj.key]?.[uid]));
 if (assignedLines.length === 0) {
 employeeAssignmentText.innerText = "Dnes nemáš priradenú žiadnu linku.";
 employeeProductionText.innerHTML = '<span class="assignment-muted">Majster ti zatiaľ nepriradil pracovisko.</span>';
@@ -239,6 +288,9 @@ roleBadge.classList.add(isMajster() ? "role-majster" : "role-zamestnanec");
 
 if (usersCard) {
 usersCard.style.display = isMajster() ? "block" : "none";
+}
+if (dailyManagementCard) {
+dailyManagementCard.style.display = isMajster() ? "block" : "none";
 }
 
 if (employeesCard) {
@@ -1029,6 +1081,10 @@ if (target === "calendar") {
 location.href = "calendar.html";
 return;
 }
+if (target === "daily-management") {
+location.href = "daily.html";
+return;
+}
 openSection(target);
 });
 });
@@ -1209,6 +1265,19 @@ absenceMessage.innerText = type === "dovolenka" ? "Žiadosť o dovolenku bola od
 });
 }
 
+if (confirmAssignmentBtn) {
+confirmAssignmentBtn.addEventListener("click", async () => {
+const user = auth.currentUser;
+if (!user) return;
+await set(ref(db, `dailyReads/${todayKey()}/${user.uid}`), {
+confirmedAt: Date.now(),
+uid: user.uid
+});
+confirmAssignmentBtn.disabled = true;
+confirmAssignmentBtn.innerText = "Prečítané";
+});
+}
+
 setupEmployeesUI();
 
 onAuthStateChanged(auth, async (user) => {
@@ -1221,6 +1290,7 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 await ensureUserRole(user);
 subscribeToData();
 subscribeToAbsences(user);
+subscribeEmployeeDailyData(user);
 } else {
 location.href = "index.html";
 }
