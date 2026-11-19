@@ -48,12 +48,6 @@ const DEFAULT_LINES = [
 ];
 
 let dataLoaded = false;
-let employeesSubscribed = false;
-let usersSubscribed = false;
-let linesSubscribed = false;
-let assignmentsSubscribed = false;
-let absencesUnsubscribe = null;
-let calendarUnsubscribe = null;
 let linesInitialized = false;
 let latestEmployeesData = null;
 let latestUsersData = null;
@@ -66,15 +60,11 @@ const detailSection = document.getElementById("detailSection");
 const detailTitle = document.getElementById("detailTitle");
 const backToOverviewBtn = document.getElementById("backToOverviewBtn");
 const usersCard = document.getElementById("usersCard");
-const employeesCard = document.getElementById("employeesCard");
-const calendarCard = document.getElementById("calendarCard");
-const calendarCardText = document.getElementById("calendarCardText");
 
 const employeesView = document.getElementById("employeesView");
 const usersView = document.getElementById("usersView");
 const linesView = document.getElementById("linesView");
 const absencesView = document.getElementById("absencesView");
-const calendarView = document.getElementById("calendarView");
 
 const addEmployeeForm = document.getElementById("addEmployeeForm");
 const employeeRoleNotice = document.getElementById("employeeRoleNotice");
@@ -101,18 +91,6 @@ const absenceAdminNotice = document.getElementById("absenceAdminNotice");
 
 let latestAbsencesData = null;
 let absencesSubscribedPath = "";
-let calendarSubscribedPath = "";
-let latestCalendarOverrides = null;
-let selectedCalendarUid = "";
-
-const calendarEmployeeWrap = document.getElementById("calendarEmployeeWrap");
-const calendarEmployeeSelect = document.getElementById("calendarEmployeeSelect");
-const calendarMonthInput = document.getElementById("calendarMonth");
-const calendarTodayBtn = document.getElementById("calendarTodayBtn");
-const calendarEmployeeNotice = document.getElementById("calendarEmployeeNotice");
-const calendarHelp = document.getElementById("calendarHelp");
-const workCalendar = document.getElementById("workCalendar");
-
 
 function normalizeShortcut(raw) {
 return raw
@@ -204,15 +182,6 @@ roleBadge.classList.add(isMajster() ? "role-majster" : "role-zamestnanec");
 if (usersCard) {
 usersCard.style.display = isMajster() ? "block" : "none";
 }
-if (employeesCard) {
-employeesCard.style.display = isMajster() ? "block" : "none";
-}
-if (calendarCardText) {
-calendarCardText.innerText = isMajster() ? "Kalendáre zamestnancov" : "Moje zmeny";
-}
-if (calendarEmployeeWrap) calendarEmployeeWrap.style.display = isMajster() ? "flex" : "none";
-if (calendarEmployeeNotice) calendarEmployeeNotice.style.display = isMajster() ? "none" : "block";
-if (calendarHelp) calendarHelp.style.display = isMajster() ? "block" : "none";
 
 if (!isMajster() && usersView && usersView.style.display === "block") {
 backToOverview();
@@ -238,9 +207,9 @@ if (actionColHeader) {
 actionColHeader.style.display = isMajster() ? "" : "none";
 }
 
-if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
-if (usersView?.style.display === "block") renderUsersList(latestUsersData);
-if (linesView?.style.display === "block") renderLinesBoard();
+renderEmployeesTable(latestEmployeesData);
+renderUsersList(latestUsersData);
+renderLinesBoard();
 }
 
 async function ensureUserRole(user) {
@@ -684,165 +653,6 @@ linesContainer.appendChild(card);
 });
 }
 
-const SHIFT_LABELS = {
-  ranna: "Ranná",
-  poobedna: "Poobedná",
-  nocna: "Nočná",
-  volno: "Voľno"
-};
-
-function dateKeyLocal(date) {
-const y = date.getFullYear();
-const m = String(date.getMonth() + 1).padStart(2, "0");
-const d = String(date.getDate()).padStart(2, "0");
-return `${y}-${m}-${d}`;
-}
-
-function mondayOfWeek(date) {
-const result = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-const day = result.getDay() || 7;
-result.setDate(result.getDate() - day + 1);
-result.setHours(0, 0, 0, 0);
-return result;
-}
-
-function defaultShiftForDate(date) {
-// Referenčný týždeň 16. 11. 2026 je poobedná zmena.
-const anchorMonday = new Date(2026, 10, 16);
-const weekMonday = mondayOfWeek(date);
-const weekDiff = Math.round((weekMonday - anchorMonday) / 604800000);
-const cycle = ((weekDiff % 3) + 3) % 3;
-const day = date.getDay();
-
-if (cycle === 0) return day >= 1 && day <= 5 ? "poobedna" : "volno";
-if (cycle === 1) return day >= 1 && day <= 5 ? "ranna" : "volno";
-// Nočná: prvý nástup v nedeľu, posledný nástup vo štvrtok.
-return (day === 0 || (day >= 1 && day <= 4)) ? "nocna" : "volno";
-}
-
-function absenceForDate(uid, key) {
-const raw = isMajster() ? latestAbsencesData?.[uid] : latestAbsencesData;
-if (!raw) return null;
-return Object.values(raw).find((item) => {
-const active = item.type === "dovolenka" ? item.status === "approved" : item.status === "reported";
-return active && item.dateFrom <= key && item.dateTo >= key;
-}) || null;
-}
-
-function fillCalendarEmployeeSelect() {
-if (!calendarEmployeeSelect || !isMajster()) return;
-const previous = selectedCalendarUid || calendarEmployeeSelect.value;
-calendarEmployeeSelect.innerHTML = "";
-const entries = latestUsersData ? Object.entries(latestUsersData).sort((a, b) => {
-return getUserDisplayName(a[0]).localeCompare(getUserDisplayName(b[0]), "sk");
-}) : [];
-entries.forEach(([uid]) => {
-const option = document.createElement("option");
-option.value = uid;
-option.innerText = getUserDisplayName(uid);
-calendarEmployeeSelect.appendChild(option);
-});
-selectedCalendarUid = entries.some(([uid]) => uid === previous) ? previous : (entries[0]?.[0] || "");
-calendarEmployeeSelect.value = selectedCalendarUid;
-}
-
-function subscribeToCalendar(uid) {
-if (!uid) return;
-const path = `workCalendars/${uid}`;
-if (calendarSubscribedPath === path && calendarUnsubscribe) {
-renderWorkCalendar();
-return;
-}
-if (calendarUnsubscribe) calendarUnsubscribe();
-calendarSubscribedPath = path;
-latestCalendarOverrides = null;
-if (workCalendar) workCalendar.innerHTML = "<p>Načítavam kalendár...</p>";
-calendarUnsubscribe = onValue(ref(db, path), (snapshot) => {
-latestCalendarOverrides = snapshot.exists() ? snapshot.val() : null;
-if (calendarView?.style.display === "block") renderWorkCalendar();
-});
-}
-
-async function editCalendarDay(uid, key, currentShift) {
-if (!isMajster()) return;
-const answer = window.prompt(
-`Zmena pre ${getUserDisplayName(uid)} dňa ${formatDateSk(key)}:\n\nNapíš: ranna, poobedna, nocna, volno alebo predvolena`,
-currentShift
-);
-if (answer === null) return;
-const normalized = normalizeShortcut(answer);
-if (normalized === "predvolena" || normalized === "predvolene" || normalized === "default") {
-await remove(ref(db, `workCalendars/${uid}/${key}`));
-return;
-}
-if (!Object.prototype.hasOwnProperty.call(SHIFT_LABELS, normalized)) {
-window.alert("Použi hodnotu: ranna, poobedna, nocna, volno alebo predvolena.");
-return;
-}
-const note = window.prompt("Poznámka k zmene (nepovinné):", latestCalendarOverrides?.[key]?.note || "");
-if (note === null) return;
-await set(ref(db, `workCalendars/${uid}/${key}`), {
-shift: normalized,
-note: note.trim(),
-updatedAt: Date.now(),
-updatedBy: auth.currentUser.uid
-});
-}
-
-function renderWorkCalendar() {
-if (!workCalendar || !calendarMonthInput?.value) return;
-const uid = isMajster() ? selectedCalendarUid : auth.currentUser?.uid;
-if (!uid) {
-workCalendar.innerHTML = "<p>Nie je vybraný žiadny zamestnanec.</p>";
-return;
-}
-const [year, month] = calendarMonthInput.value.split("-").map(Number);
-const first = new Date(year, month - 1, 1);
-const last = new Date(year, month, 0);
-const gridStart = mondayOfWeek(first);
-const gridEnd = new Date(last);
-const endDay = gridEnd.getDay() || 7;
-gridEnd.setDate(gridEnd.getDate() + (7 - endDay));
-
-workCalendar.innerHTML = "";
-["Po", "Ut", "St", "Št", "Pi", "So", "Ne"].forEach((label) => {
-const head = document.createElement("div");
-head.className = "calendar-weekday";
-head.innerText = label;
-workCalendar.appendChild(head);
-});
-
-for (let cursor = new Date(gridStart); cursor <= gridEnd; cursor.setDate(cursor.getDate() + 1)) {
-const dayDate = new Date(cursor);
-const key = dateKeyLocal(dayDate);
-const override = latestCalendarOverrides?.[key];
-const shift = override?.shift || defaultShiftForDate(dayDate);
-const absence = absenceForDate(uid, key);
-const cell = document.createElement("button");
-cell.type = "button";
-cell.className = `calendar-day shift-${absence ? "nepritomnost" : shift}`;
-if (dayDate.getMonth() !== month - 1) cell.classList.add("outside-month");
-if (key === dateKeyLocal(new Date())) cell.classList.add("today");
-if (!isMajster()) cell.disabled = true;
-
-const number = document.createElement("span");
-number.className = "calendar-day-number";
-number.innerText = dayDate.getDate();
-const label = document.createElement("span");
-label.className = "calendar-shift-label";
-label.innerText = absence ? absenceTypeLabel(absence.type) : SHIFT_LABELS[shift];
-cell.append(number, label);
-if (override?.note) {
-const note = document.createElement("span");
-note.className = "calendar-day-note";
-note.innerText = override.note;
-cell.appendChild(note);
-}
-if (isMajster()) cell.addEventListener("click", () => editCalendarDay(uid, key, shift));
-workCalendar.appendChild(cell);
-}
-}
-
 function formatDateSk(value) {
 if (!value) return "";
 const [year, month, day] = value.split("-");
@@ -968,16 +778,11 @@ if (headerPerson) headerPerson.style.display = isMajster() ? "" : "none";
 
 function subscribeToAbsences(user) {
 const path = isMajster() ? "absences" : `absences/${user.uid}`;
-if (absencesSubscribedPath === path && absencesUnsubscribe) {
-renderAbsences();
-return;
-}
-if (absencesUnsubscribe) absencesUnsubscribe();
+if (absencesSubscribedPath === path) return;
 absencesSubscribedPath = path;
-if (absencesTableBody) absencesTableBody.innerHTML = '<tr><td colspan="7">Načítavam neprítomnosti...</td></tr>';
-absencesUnsubscribe = onValue(ref(db, path), (snapshot) => {
+onValue(ref(db, path), (snapshot) => {
 latestAbsencesData = snapshot.exists() ? snapshot.val() : null;
-if (absencesView?.style.display === "block") renderAbsences();
+renderAbsences();
 });
 }
 
@@ -1005,56 +810,74 @@ userUid: uid
 if (writes.length) await Promise.all(writes);
 }
 
-function subscribeEmployees() {
-if (employeesSubscribed) return;
-employeesSubscribed = true;
-onValue(ref(db, "employees"), (snapshot) => {
-latestEmployeesData = snapshot.exists() ? snapshot.val() : null;
-const countEl = document.getElementById("employeeCount");
-if (countEl) countEl.innerText = latestEmployeesData ? Object.keys(latestEmployeesData).length : 0;
-if (employeesView?.style.display === "block") renderEmployeesTable(latestEmployeesData);
-});
-}
-
-function subscribeUsers() {
-if (usersSubscribed) return;
-usersSubscribed = true;
-onValue(ref(db, "users"), (snapshot) => {
-latestUsersData = snapshot.exists() ? snapshot.val() : null;
-const count = latestUsersData ? Object.keys(latestUsersData).length : 0;
-const countEl = document.getElementById("userCount");
-if (countEl) countEl.innerText = count;
-const detailCountEl = document.getElementById("usersDetailCount");
-if (detailCountEl) detailCountEl.innerText = count;
-if (usersView?.style.display === "block") renderUsersList(latestUsersData);
-if (linesView?.style.display === "block") renderLinesBoard();
-if (calendarView?.style.display === "block" && isMajster()) fillCalendarEmployeeSelect();
-});
-}
-
-function subscribeLines() {
-if (!linesSubscribed) {
-linesSubscribed = true;
-onValue(ref(db, "lines"), (snapshot) => {
-latestLinesList = parseLinesSnapshot(snapshot.exists() ? snapshot.val() : null);
-const linesCountEl = document.getElementById("linesCount");
-if (linesCountEl) linesCountEl.innerText = latestLinesList.length;
-if (linesView?.style.display === "block") renderLinesBoard();
-});
-}
-if (!assignmentsSubscribed) {
-assignmentsSubscribed = true;
-onValue(ref(db, "lineAssignments"), (snapshot) => {
-latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
-if (linesView?.style.display === "block") renderLinesBoard();
-});
-}
-}
-
 function subscribeToData() {
 if (dataLoaded) return;
 dataLoaded = true;
-// Pri štarte sa nenačítavajú celé zoznamy. Každá sekcia sa načíta až po otvorení.
+
+ensureDefaultLinesExist().catch(() => {});
+
+onValue(ref(db, "lines"), (snapshot) => {
+const val = snapshot.exists() ? snapshot.val() : null;
+latestLinesList = parseLinesSnapshot(val);
+
+const linesCountEl = document.getElementById("linesCount");
+if (linesCountEl) {
+linesCountEl.innerText = latestLinesList.length;
+}
+
+renderLinesBoard();
+renderUsersList(latestUsersData);
+});
+
+onValue(ref(db, "employees"), (snapshot) => {
+const val = snapshot.exists() ? snapshot.val() : null;
+latestEmployeesData = val;
+
+const countEl = document.getElementById("employeeCount");
+if (countEl) {
+countEl.innerText = val ? Object.keys(val).length : 0;
+}
+
+renderEmployeesTable(val);
+});
+
+onValue(ref(db, "users"), (snapshot) => {
+const val = snapshot.exists() ? snapshot.val() : null;
+latestUsersData = val;
+if (isMajster()) {
+syncUsersToEmployees(val, latestEmployeesData).catch((error) => console.error("Synchronizácia zamestnancov zlyhala:", error));
+}
+const count = val ? Object.keys(val).length : 0;
+
+const countEl = document.getElementById("userCount");
+if (countEl) {
+countEl.innerText = count;
+}
+
+const detailCountEl = document.getElementById("usersDetailCount");
+if (detailCountEl) {
+detailCountEl.innerText = count;
+}
+
+const currentAuthUser = auth.currentUser;
+if (currentAuthUser && val && val[currentAuthUser.uid] && val[currentAuthUser.uid].role) {
+const updatedRole = normalizeRole(val[currentAuthUser.uid].role);
+if (updatedRole !== currentUserRole) {
+currentUserRole = updatedRole;
+applyRoleUI();
+return;
+}
+}
+
+renderUsersList(val);
+renderLinesBoard();
+});
+
+onValue(ref(db, "lineAssignments"), (snapshot) => {
+latestLineAssignments = snapshot.exists() ? snapshot.val() : {};
+renderLinesBoard();
+renderUsersList(latestUsersData);
+});
 }
 
 function openSection(sectionName) {
@@ -1069,39 +892,23 @@ employeesView.style.display = "none";
 usersView.style.display = "none";
 linesView.style.display = "none";
 absencesView.style.display = "none";
-calendarView.style.display = "none";
 
 if (sectionName === "employees") {
 detailTitle.innerText = "Zamestnanci";
 employeesView.style.display = "block";
-subscribeEmployees();
-if (latestEmployeesData) renderEmployeesTable(latestEmployeesData);
+renderEmployeesTable(latestEmployeesData);
 } else if (sectionName === "users") {
 detailTitle.innerText = "Používatelia";
 usersView.style.display = "block";
-subscribeUsers();
-subscribeLines();
-if (latestUsersData) renderUsersList(latestUsersData);
+renderUsersList(latestUsersData);
 } else if (sectionName === "lines") {
 detailTitle.innerText = "Linky";
 linesView.style.display = "block";
-subscribeUsers();
-subscribeLines();
 renderLinesBoard();
-} else if (sectionName === "calendar") {
-detailTitle.innerText = isMajster() ? "Pracovné kalendáre" : "Môj pracovný kalendár";
-calendarView.style.display = "block";
-if (!calendarMonthInput.value) calendarMonthInput.value = dateKeyLocal(new Date()).slice(0, 7);
-if (isMajster()) {
-subscribeUsers();
-fillCalendarEmployeeSelect();
-}
-selectedCalendarUid = isMajster() ? calendarEmployeeSelect.value : auth.currentUser.uid;
-subscribeToCalendar(selectedCalendarUid);
 } else if (sectionName === "absences") {
 detailTitle.innerText = "Neprítomnosti";
 absencesView.style.display = "block";
-subscribeToAbsences(auth.currentUser);
+renderAbsences();
 }
 }
 
@@ -1252,24 +1059,6 @@ if (submitBtn) submitBtn.disabled = false;
 });
 }
 
-if (calendarMonthInput) {
-calendarMonthInput.value = dateKeyLocal(new Date()).slice(0, 7);
-calendarMonthInput.addEventListener("change", renderWorkCalendar);
-}
-if (calendarTodayBtn) {
-calendarTodayBtn.addEventListener("click", () => {
-calendarMonthInput.value = dateKeyLocal(new Date()).slice(0, 7);
-renderWorkCalendar();
-});
-}
-if (calendarEmployeeSelect) {
-calendarEmployeeSelect.addEventListener("change", () => {
-selectedCalendarUid = calendarEmployeeSelect.value;
-latestCalendarOverrides = null;
-subscribeToCalendar(selectedCalendarUid);
-});
-}
-
 if (absenceForm) {
 absenceForm.addEventListener("submit", async (e) => {
 e.preventDefault();
@@ -1317,7 +1106,7 @@ userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
 }
 await ensureUserRole(user);
 subscribeToData();
-selectedCalendarUid = user.uid;
+subscribeToAbsences(user);
 } else {
 location.href = "index.html";
 }
