@@ -73,15 +73,14 @@ nav{
     z-index:1;
 }
 
-input{
+.login-container input,
+.login-container button{
     width:100%;
     padding:10px;
     margin-bottom:10px;
 }
 
 button{
-    width:100%;
-    padding:10px;
     cursor:pointer;
 }
 
@@ -101,12 +100,96 @@ button{
     border-radius:10px;
     width:220px;
     text-align:center;
+    box-shadow:0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.card{
-    background:rgba(255, 255, 255, 0.92);
-    padding:20px;
+.clickable-card{
+    cursor:pointer;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clickable-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 6px 14px rgba(0, 0, 0, 0.14);
+}
+
+.detail-panel{
+    max-width:960px;
+    margin:24px auto;
+    padding:24px;
+    background:rgba(255, 255, 255, 0.95);
     border-radius:10px;
-    width:200px;
-    text-align:center;
+    box-shadow:0 2px 10px rgba(0, 0, 0, 0.08);
+    position:relative;
+    z-index:1;
+}
+
+.detail-header{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    margin-bottom:20px;
+}
+
+.detail-header h2{
+    margin:0;
+}
+
+.secondary-btn{
+    padding:8px 14px;
+    border:1px solid #ccc;
+    background:#f9f9f9;
+    border-radius:6px;
+}
+
+.employee-form{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:20px;
+}
+
+.employee-form input{
+    flex:1 1 160px;
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:6px;
+}
+
+.primary-btn{
+    padding:10px 18px;
+    background:#cc0000;
+    color:white;
+    border:none;
+    border-radius:6px;
+    font-weight:bold;
+}
+
+.table-wrap{
+    overflow-x:auto;
+}
+
+.data-table{
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+}
+
+.data-table th,
+.data-table td{
+    padding:10px 12px;
+    border-bottom:1px solid #e0e0e0;
+    text-align:left;
+}
+
+.data-table th{
+    background:#f0f0f0;
+}
+
+.delete-btn{
+    padding:6px 12px;
+    background:#b00020;
+    color:white;
+    border:none;
+    border-radius:5px;
 }
