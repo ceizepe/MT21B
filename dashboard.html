@@ -47,6 +47,11 @@ Odhlásiť
 <p id="userCount">0</p>
 </div>
 
+<div class="card clickable-card" data-section="lines">
+<h3>Linky</h3>
+<p id="linesCount">0</p>
+</div>
+
 <div class="card clickable-card" data-section="groups">
 <h3>Skupiny</h3>
 <p>8</p>
@@ -110,6 +115,19 @@ Prihlásený si s rolou <strong>zamestnanec</strong> – máš iba právo na pre
 
 <h3>Zoznam na priradenie na linky</h3>
 <div id="usersRoleList"></div>
+</div>
+
+<div id="linesView" style="display: none;">
+<p id="linesRoleNotice" class="role-notice" style="display: none;">
+Prihlásený si s rolou <strong>zamestnanec</strong> – vidíš aktuálne rozdelenie ľudí na linkách (upravovať môže iba majster).
+</p>
+
+<form id="addLineForm" class="employee-form" style="display: none;">
+<input type="text" id="newLineName" placeholder="Názov novej linky (napr. Linka 9)" required>
+<button type="submit" class="primary-btn">Pridať linku</button>
+</form>
+
+<div id="linesContainer" class="lines-grid"></div>
 </div>
 
 <div id="groupsView" style="display: none;">
