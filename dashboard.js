@@ -158,8 +158,8 @@ return Object.entries(val)
     key,
     name: data?.name || key,
     order: typeof data?.order === "number" ? data.order : idx + 1,
-    product: data?.product || "",
-    project: data?.project || ""
+    product1: data?.product1 || data?.product || data?.project || "",
+    product2: data?.product2 || ""
   }))
   .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "sk"));
 }
@@ -207,9 +207,24 @@ employeeProductionText.innerHTML = "";
 assignedLines.forEach((line) => {
 const row = document.createElement("div");
 row.className = "employee-production-row";
-const productText = line.product || "Výroba zatiaľ nebola zadaná";
-const projectText = line.project || "Projekt zatiaľ nebol zadaný";
-row.innerHTML = `<strong>${line.name}</strong><span>Budeš vyrábať: ${productText}</span><span>Projekt: ${projectText}</span>`;
+const product1 = line.product1 || "Výroba zatiaľ nebola zadaná";
+const product2 = line.product2 || "";
+const lineName = document.createElement("strong");
+lineName.innerText = line.name;
+const productionWrap = document.createElement("div");
+productionWrap.className = "today-production";
+const productionTitle = document.createElement("span");
+productionTitle.className = "today-production-title";
+productionTitle.innerText = "Dnešná výroba";
+const product1Text = document.createElement("span");
+product1Text.innerText = `Produkt 1: ${product1}`;
+productionWrap.append(productionTitle, product1Text);
+if (product2) {
+const product2Text = document.createElement("span");
+product2Text.innerText = `Produkt 2: ${product2}`;
+productionWrap.appendChild(product2Text);
+}
+row.append(lineName, productionWrap);
 employeeProductionText.appendChild(row);
 });
 }
@@ -518,15 +533,19 @@ productionBtn.type = "button";
 productionBtn.className = "secondary-btn";
 productionBtn.style.padding = "3px 8px";
 productionBtn.style.fontSize = "12px";
-productionBtn.innerText = "Výroba a projekt";
+productionBtn.innerText = "Dnešná výroba";
 productionBtn.addEventListener("click", async () => {
-const product = window.prompt("Čo sa bude na tejto linke vyrábať?", lineObj.product || "");
-if (product === null) return;
-const project = window.prompt("Názov alebo číslo projektu:", lineObj.project || "");
-if (project === null) return;
+const product1 = window.prompt("Produkt 1:", lineObj.product1 || "");
+if (product1 === null) return;
+if (!product1.trim()) {
+window.alert("Produkt 1 musí byť vyplnený.");
+return;
+}
+const product2 = window.prompt("Produkt 2 (nepovinné, môže zostať prázdne):", lineObj.product2 || "");
+if (product2 === null) return;
 await update(ref(db, `lines/${lineObj.key}`), {
-product: product.trim(),
-project: project.trim()
+product1: product1.trim(),
+product2: product2.trim()
 });
 });
 
@@ -552,7 +571,17 @@ card.appendChild(header);
 
 const productionInfo = document.createElement("div");
 productionInfo.className = "line-production-info";
-productionInfo.innerHTML = `<span><strong>Výroba:</strong> ${lineObj.product || "nezadaná"}</span><span><strong>Projekt:</strong> ${lineObj.project || "nezadaný"}</span>`;
+productionInfo.innerHTML = "";
+const productionLabel = document.createElement("strong");
+productionLabel.innerText = "Dnešná výroba:";
+const product1Info = document.createElement("span");
+product1Info.innerText = `Produkt 1: ${lineObj.product1 || "nezadaný"}`;
+productionInfo.append(productionLabel, product1Info);
+if (lineObj.product2) {
+const product2Info = document.createElement("span");
+product2Info.innerText = `Produkt 2: ${lineObj.product2}`;
+productionInfo.appendChild(product2Info);
+}
 card.appendChild(productionInfo);
 
 const membersList = document.createElement("ul");
