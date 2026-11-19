@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MT21B – Pracovný kalendár</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="calendar.css">
+</head>
+<body>
+<div class="bg-watermark" aria-hidden="true"></div>
+<nav class="topbar">
+<div class="brand">
+<img src="brose-logo-brose-fahrzeugteile-gmbh-co-k-11563170547fgficxf1fi.png" alt="Brose logo" class="brand-logo">
+<h2>Pracovný kalendár</h2>
+</div>
+<div class="user-bar">
+<span id="calendarCurrentUser">Načítavam...</span>
+<button id="backDashboardBtn" type="button">Späť na prehľad</button>
+<button id="calendarLogoutBtn" type="button">Odhlásiť</button>
+</div>
+</nav>
+<main class="calendar-page">
+<div class="calendar-toolbar">
+<label id="calendarEmployeeWrap" style="display:none;">Zamestnanec
+<select id="calendarEmployeeSelect"></select>
+</label>
+<label>Mesiac
+<input type="month" id="calendarMonth">
+</label>
+<button id="calendarTodayBtn" type="button" class="secondary-btn">Aktuálny mesiac</button>
+</div>
+<p id="calendarMessage" class="role-notice">Načítavam kalendár...</p>
+<div class="calendar-legend">
+<span class="shift-ranna">Ranná</span>
+<span class="shift-poobedna">Poobedná</span>
+<span class="shift-nocna">Nočná</span>
+<span class="shift-volno">Voľno</span>
+</div>
+<div id="workCalendar" class="work-calendar"></div>
+</main>
+<script type="module" src="calendar.js"></script>
+</body>
+</html>

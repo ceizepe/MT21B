@@ -1,7 +1,8 @@
-/* Pracovný kalendár */
+/* Samostatný pracovný kalendár */
+.calendar-page { max-width: 1400px; margin: 24px auto; padding: 0 20px 30px; }
 .calendar-toolbar { display:flex; gap:14px; align-items:end; flex-wrap:wrap; margin-bottom:14px; padding:14px; background:#f7f8fa; border:1px solid #dde2e8; border-radius:10px; }
 .calendar-toolbar label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:700; color:#364152; }
-.calendar-toolbar select, .calendar-toolbar input { min-width:210px; padding:9px 10px; border:1px solid #c9d0da; border-radius:6px; background:#fff; font:inherit; }
+.calendar-toolbar select, .calendar-toolbar input { min-width:220px; padding:9px 10px; border:1px solid #c9d0da; border-radius:6px; background:#fff; font:inherit; }
 .calendar-legend { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
 .calendar-legend span { padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
 .work-calendar { display:grid; grid-template-columns:repeat(7,minmax(105px,1fr)); gap:7px; overflow-x:auto; }
@@ -17,5 +18,4 @@
 .shift-poobedna { background:#dcecff; }
 .shift-nocna { background:#e7ddff; }
 .shift-volno { background:#f0f2f5; }
-.shift-nepritomnost { background:#ffdede; }
 @media (max-width:850px) { .work-calendar { grid-template-columns:repeat(7,minmax(88px,1fr)); } .calendar-day { min-height:92px; } }
