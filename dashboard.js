@@ -9,7 +9,8 @@ from
 "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
 import {
-signOut
+signOut,
+onAuthStateChanged
 }
 from
 "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
@@ -37,7 +38,18 @@ users.exists()
 : 0;
 }
 
+onAuthStateChanged(auth, (user) => {
+const userEl = document.getElementById("currentUser");
+
+if (user) {
+if (userEl) {
+userEl.innerText = user.email ? user.email.split("@")[0] : "Používateľ";
+}
 loadData();
+} else {
+location.href = "index.html";
+}
+});
 
 document
 .getElementById("logoutBtn")
